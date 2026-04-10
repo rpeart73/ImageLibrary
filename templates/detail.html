@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}{{ image.title }} — Image Library{% endblock %}
+{% block content %}
+<div class="detail-container">
+    <div class="detail-image">
+        <img src="{{ url_for('static', filename='uploads/' + image.filename) }}" alt="{{ image.title }}">
+    </div>
+    <div class="detail-panel">
+        <div class="detail-section">
+            <div class="detail-title">{{ image.title }}</div>
+            <div class="detail-creator">{{ image.creator or 'Unknown' }}</div>
+            <div class="detail-date">{{ image.date or 'n.d.' }} | {{ image.medium or 'Photograph' }}</div>
+            {% if image.theme_name %}
+            <span class="image-card-theme" style="margin-top: 8px;">{{ image.theme_name }}</span>
+            {% endif %}
+        </div>
+
+        {% if image.description %}
+        <div class="detail-section">
+            <h3>Description</h3>
+            <div class="detail-description">{{ image.description }}</div>
+        </div>
+        {% endif %}
+
+        {% if image.narrative %}
+        <div class="detail-section">
+            <h3>Narrative</h3>
+            <div class="detail-narrative">{{ image.narrative }}</div>
+        </div>
+        {% endif %}
+
+        {% if tags %}
+        <div class="detail-section">
+            <h3>Tags</h3>
+            <div class="detail-tags">
+                {% for tag in tags %}
+                <a href="{{ url_for('index', tag=tag.name) }}" class="tag">{{ tag.name }}</a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="detail-section">
+            <h3>APA 7th Citation (click to copy)</h3>
+            <div class="apa-citation">{{ apa }}</div>
+        </div>
+
+        {% if image.source_url %}
+        <div class="detail-section">
+            <h3>Source</h3>
+            <a href="{{ image.source_url }}" target="_blank">{{ image.source_url }}</a>
+        </div>
+        {% endif %}
+
+        {% if image.rights %}
+        <div class="detail-section">
+            <h3>Rights</h3>
+            <div class="detail-description">{{ image.rights }}</div>
+        </div>
+        {% endif %}
+
+        <div class="detail-section">
+            <h3>File</h3>
+            <div class="detail-description" style="font-family: var(--mono); font-size: 12px;">
+                {{ image.filename }}<br>
+                {{ image.width }}x{{ image.height }} | {{ (image.file_size / 1024)|round(1) }} KB | {{ image.mimetype }}
+            </div>
+        </div>
+
+        <div class="btn-group">
+            <a href="{{ url_for('image_edit', image_id=image.id) }}" class="btn btn-secondary">Edit</a>
+            <form action="{{ url_for('image_delete', image_id=image.id) }}" method="post" style="display:inline;"
+                  onsubmit="return confirm('Delete this image?');">
+                <button type="submit" class="btn btn-danger">Delete</button>
+            </form>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">Back</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

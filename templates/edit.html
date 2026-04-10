@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Edit — {{ image.title }}{% endblock %}
+{% block content %}
+<div class="form-container">
+    <div class="form-section">
+        <h2>Edit Image</h2>
+        <form method="post">
+            <div class="form-group">
+                <label>Title</label>
+                <input type="text" name="title" value="{{ image.title }}" required>
+            </div>
+            <div class="form-group">
+                <label>Creator</label>
+                <input type="text" name="creator" value="{{ image.creator or '' }}" placeholder="Photographer, artist, or studio">
+            </div>
+            <div class="form-group">
+                <label>Date</label>
+                <input type="text" name="date" value="{{ image.date or '' }}" placeholder="e.g. 1968, c. 1940s, October 16 1968">
+            </div>
+            <div class="form-group">
+                <label>Medium</label>
+                <input type="text" name="medium" value="{{ image.medium or 'Photograph' }}" placeholder="Photograph, Television still, Movie poster, etc.">
+            </div>
+            <div class="form-group">
+                <label>Theme</label>
+                <select name="theme_id">
+                    <option value="">Select theme...</option>
+                    {% for theme in themes %}
+                    <option value="{{ theme.id }}" {{ 'selected' if image.theme_id == theme.id }}>{{ theme.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" placeholder="What the image shows (factual)">{{ image.description or '' }}</textarea>
+            </div>
+            <div class="form-group">
+                <label>Narrative</label>
+                <textarea name="narrative" rows="12" placeholder="The full story behind this image">{{ image.narrative or '' }}</textarea>
+            </div>
+            <div class="form-group">
+                <label>Source URL</label>
+                <input type="url" name="source_url" value="{{ image.source_url or '' }}" placeholder="https://...">
+            </div>
+            <div class="form-group">
+                <label>Rights</label>
+                <input type="text" name="rights" value="{{ image.rights or '' }}" placeholder="Copyright holder, license">
+            </div>
+            <div class="form-group">
+                <label>Tags (comma-separated)</label>
+                <input type="text" name="tags" value="{{ tag_str }}">
+            </div>
+            <div class="btn-group">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <a href="{{ url_for('image_detail', image_id=image.id) }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

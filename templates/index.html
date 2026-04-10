@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="stats-bar">
+    <div class="stat-item"><span>{{ stats.total_images }}</span> images</div>
+    <div class="stat-item"><span>{{ stats.total_themes }}</span> themes</div>
+    <div class="stat-item"><span>{{ stats.total_tags }}</span> tags</div>
+</div>
+
+<div class="filter-bar">
+    <a href="{{ url_for('index') }}" class="filter-chip {{ 'active' if not current_theme and not current_tag }}">All</a>
+    {% for theme in themes %}
+        <a href="{{ url_for('index', theme=theme.name) }}" class="filter-chip {{ 'active' if current_theme == theme.name }}">{{ theme.name }}</a>
+    {% endfor %}
+</div>
+
+{% if images %}
+<div class="image-grid">
+    {% for image in images %}
+    <a href="{{ url_for('image_detail', image_id=image.id) }}" class="image-card">
+        <img src="{{ url_for('static', filename='uploads/' + image.filename) }}" alt="{{ image.title }}" loading="lazy">
+        <div class="image-card-body">
+            <div class="image-card-title">{{ image.title }}</div>
+            <div class="image-card-meta">{{ image.creator or 'Unknown' }} | {{ image.date or 'n.d.' }}</div>
+            {% if image.theme_name %}
+            <span class="image-card-theme">{{ image.theme_name }}</span>
+            {% endif %}
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <h2>No images yet</h2>
+    <p>Upload an image or import from a URL to get started.</p>
+    <div class="btn-group" style="justify-content: center;">
+        <a href="{{ url_for('upload') }}" class="btn btn-primary">Upload</a>
+        <a href="{{ url_for('import_url') }}" class="btn btn-secondary">Import URL</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

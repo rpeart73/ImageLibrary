@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Import from URL — Image Library{% endblock %}
+{% block content %}
+<div class="form-container">
+    <div class="form-section">
+        <h2>Import Image from URL</h2>
+        <form method="post">
+            <div class="form-group">
+                <label>Image URL</label>
+                <input type="url" name="url" placeholder="https://example.com/image.jpg" required>
+            </div>
+            <div class="form-group">
+                <label>Title</label>
+                <input type="text" name="title" placeholder="Descriptive title for the image">
+            </div>
+            <div class="form-group">
+                <label>Theme</label>
+                <select name="theme_id">
+                    <option value="">Select theme...</option>
+                    {% for theme in themes %}
+                    <option value="{{ theme.id }}">{{ theme.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Tags (comma-separated)</label>
+                <input type="text" name="tags" placeholder="tag1, tag2, tag3">
+            </div>
+            <div class="btn-group">
+                <button type="submit" class="btn btn-primary">Import</button>
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
