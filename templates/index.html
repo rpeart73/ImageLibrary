@@ -28,6 +28,17 @@
     </a>
     {% endfor %}
 </div>
+{% if total_pages > 1 %}
+<div style="display: flex; justify-content: center; gap: 8px; padding: 16px 24px;">
+    {% if page > 1 %}
+    <a href="{{ url_for('index', page=page-1, theme=current_theme, tag=current_tag, q=search) }}" class="btn btn-secondary">Previous</a>
+    {% endif %}
+    <span style="padding: 8px 16px; font-size: 14px; color: var(--text-muted);">Page {{ page }} of {{ total_pages }}</span>
+    {% if page < total_pages %}
+    <a href="{{ url_for('index', page=page+1, theme=current_theme, tag=current_tag, q=search) }}" class="btn btn-secondary">Next</a>
+    {% endif %}
+</div>
+{% endif %}
 {% else %}
 <div class="empty-state">
     <h2>No images yet</h2>

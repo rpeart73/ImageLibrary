@@ -48,21 +48,34 @@ def index():
         query += " AND (i.title LIKE ? OR i.description LIKE ? OR i.narrative LIKE ? OR i.creator LIKE ?)"
         params.extend([f'%{search}%'] * 4)
 
-    query += " ORDER BY i.modified DESC"
+    # Count total for pagination
+    count_query = query.replace("SELECT i.*, t.name as theme_name FROM images i LEFT JOIN themes t ON i.theme_id = t.id", "SELECT COUNT(*) FROM images i LEFT JOIN themes t ON i.theme_id = t.id")
+    total_count = db.execute(count_query, params).fetchone()[0]
+
+    # Pagination
+    page = request.args.get('page', 1, type=int)
+    per_page = 24
+    total_pages = max(1, (total_count + per_page - 1) // per_page)
+    page = min(page, total_pages)
+    offset = (page - 1) * per_page
+
+    query += " ORDER BY i.modified DESC LIMIT ? OFFSET ?"
+    params.extend([per_page, offset])
     images = db.execute(query, params).fetchall()
 
     themes = db.execute("SELECT * FROM themes ORDER BY name").fetchall()
     tags = db.execute("SELECT DISTINCT tg.name FROM tags tg JOIN image_tags it ON tg.id = it.tag_id ORDER BY tg.name").fetchall()
 
     stats = {
-        'total_images': db.execute("SELECT COUNT(*) FROM images").fetchone()[0],
+        'total_images': total_count,
         'total_themes': db.execute("SELECT COUNT(*) FROM themes").fetchone()[0],
         'total_tags': db.execute("SELECT COUNT(DISTINCT tag_id) FROM image_tags").fetchone()[0],
     }
 
     db.close()
     return render_template('index.html', images=images, themes=themes, tags=tags, stats=stats,
-                           current_theme=theme_filter, current_tag=tag_filter, search=search)
+                           current_theme=theme_filter, current_tag=tag_filter, search=search,
+                           page=page, total_pages=total_pages)
 
 
 @app.route('/image/<int:image_id>')
