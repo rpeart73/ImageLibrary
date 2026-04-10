@@ -2,12 +2,22 @@
 {% block content %}
 <div class="stats-bar">
     <div class="stat-item"><span>{{ stats.total_images }}</span> images</div>
+    <div class="stat-item"><span>{{ stats.total_media }}</span> videos</div>
     <div class="stat-item"><span>{{ stats.total_themes }}</span> themes</div>
     <div class="stat-item"><span>{{ stats.total_tags }}</span> tags</div>
+    {% if current_course or current_theme %}
+    <div style="margin-left: auto;">
+        <a href="{{ url_for('export_citations', course=current_course, theme=current_theme) }}" class="btn btn-secondary" style="font-size: 12px; padding: 4px 10px;">Export Citations</a>
+    </div>
+    {% endif %}
 </div>
 
 <div class="filter-bar">
-    <a href="{{ url_for('index') }}" class="filter-chip {{ 'active' if not current_theme and not current_tag }}">All</a>
+    <a href="{{ url_for('index') }}" class="filter-chip {{ 'active' if not current_theme and not current_tag and not current_course }}">All</a>
+    {% for course in courses %}
+        <a href="{{ url_for('index', course=course.code) }}" class="filter-chip {{ 'active' if current_course == course.code }}" style="{% if current_course == course.code %}background: var(--accent); color: #fff;{% endif %}">{{ course.code }}</a>
+    {% endfor %}
+    <span style="color: var(--border); padding: 0 4px;">|</span>
     {% for theme in themes %}
         <a href="{{ url_for('index', theme=theme.name) }}" class="filter-chip {{ 'active' if current_theme == theme.name }}">{{ theme.name }}</a>
     {% endfor %}
@@ -28,14 +38,15 @@
     </a>
     {% endfor %}
 </div>
+
 {% if total_pages > 1 %}
 <div style="display: flex; justify-content: center; gap: 8px; padding: 16px 24px;">
     {% if page > 1 %}
-    <a href="{{ url_for('index', page=page-1, theme=current_theme, tag=current_tag, q=search) }}" class="btn btn-secondary">Previous</a>
+    <a href="{{ url_for('index', page=page-1, theme=current_theme, tag=current_tag, course=current_course, q=search) }}" class="btn btn-secondary">Previous</a>
     {% endif %}
     <span style="padding: 8px 16px; font-size: 14px; color: var(--text-muted);">Page {{ page }} of {{ total_pages }}</span>
     {% if page < total_pages %}
-    <a href="{{ url_for('index', page=page+1, theme=current_theme, tag=current_tag, q=search) }}" class="btn btn-secondary">Next</a>
+    <a href="{{ url_for('index', page=page+1, theme=current_theme, tag=current_tag, course=current_course, q=search) }}" class="btn btn-secondary">Next</a>
     {% endif %}
 </div>
 {% endif %}

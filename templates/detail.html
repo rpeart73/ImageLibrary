@@ -89,6 +89,20 @@
             </div>
         </div>
 
+        {% if related %}
+        <div class="detail-section">
+            <h3>Related</h3>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+                {% for r in related %}
+                <a href="{{ url_for('image_detail', image_id=r.id) }}" style="text-decoration: none;">
+                    <img src="{{ url_for('static', filename='uploads/' + r.filename) }}" alt="{{ r.title }}" style="width: 100%; height: 80px; object-fit: cover; border-radius: 4px;">
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">{{ r.title }}</div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
         <div class="btn-group">
             <a href="{{ url_for('image_edit', image_id=image.id) }}" class="btn btn-secondary">Edit</a>
             <form action="{{ url_for('image_delete', image_id=image.id) }}" method="post" style="display:inline;"

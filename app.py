@@ -33,6 +33,7 @@ def index():
     db = get_db()
     theme_filter = request.args.get('theme')
     tag_filter = request.args.get('tag')
+    course_filter = request.args.get('course')
     search = request.args.get('q')
 
     query = "SELECT i.*, t.name as theme_name FROM images i LEFT JOIN themes t ON i.theme_id = t.id WHERE 1=1"
@@ -44,6 +45,9 @@ def index():
     if tag_filter:
         query += " AND i.id IN (SELECT image_id FROM image_tags it JOIN tags tg ON it.tag_id = tg.id WHERE tg.name = ?)"
         params.append(tag_filter)
+    if course_filter:
+        query += " AND i.id IN (SELECT image_id FROM image_course_relevance icr JOIN courses c ON icr.course_id = c.id WHERE c.code = ?)"
+        params.append(course_filter)
     if search:
         query += " AND (i.title LIKE ? OR i.description LIKE ? OR i.narrative LIKE ? OR i.creator LIKE ?)"
         params.extend([f'%{search}%'] * 4)
@@ -68,13 +72,17 @@ def index():
 
     stats = {
         'total_images': total_count,
+        'total_media': db.execute("SELECT COUNT(*) FROM media").fetchone()[0],
         'total_themes': db.execute("SELECT COUNT(*) FROM themes").fetchone()[0],
         'total_tags': db.execute("SELECT COUNT(DISTINCT tag_id) FROM image_tags").fetchone()[0],
     }
 
+    courses = db.execute("SELECT code, name FROM courses ORDER BY code").fetchall()
+
     db.close()
     return render_template('index.html', images=images, themes=themes, tags=tags, stats=stats,
-                           current_theme=theme_filter, current_tag=tag_filter, search=search,
+                           courses=courses, current_theme=theme_filter, current_tag=tag_filter,
+                           current_course=course_filter, search=search,
                            page=page, total_pages=total_pages)
 
 
@@ -96,8 +104,69 @@ def image_detail(image_id):
                                      ORDER BY CASE cr.fit WHEN 'strong' THEN 1 WHEN 'moderate' THEN 2 ELSE 3 END""",
                                   (image_id,)).fetchall()
 
+    # Related images (same theme or shared tags, exclude self)
+    tag_names = [t['name'] for t in tags]
+    related = []
+    if tag_names:
+        placeholders = ','.join('?' * len(tag_names))
+        related = db.execute(f"""SELECT DISTINCT i.id, i.filename, i.title, i.creator
+                                 FROM images i
+                                 JOIN image_tags it ON i.id = it.image_id
+                                 JOIN tags tg ON it.tag_id = tg.id
+                                 WHERE tg.name IN ({placeholders}) AND i.id != ?
+                                 LIMIT 6""", tag_names + [image_id]).fetchall()
+
     db.close()
-    return render_template('detail.html', image=image, tags=tags, apa=apa, course_relevance=course_relevance)
+    return render_template('detail.html', image=image, tags=tags, apa=apa,
+                           course_relevance=course_relevance, related=related)
+
+
+@app.route('/export/citations')
+def export_citations():
+    """Export APA citations filtered by course or theme."""
+    db = get_db()
+    course = request.args.get('course')
+    theme = request.args.get('theme')
+
+    citations = []
+
+    # Image citations
+    if course:
+        images = db.execute("""SELECT i.* FROM images i
+                               JOIN image_course_relevance icr ON i.id = icr.image_id
+                               JOIN courses c ON icr.course_id = c.id
+                               WHERE c.code = ? ORDER BY i.creator""", (course,)).fetchall()
+    elif theme:
+        images = db.execute("""SELECT i.* FROM images i
+                               JOIN themes t ON i.theme_id = t.id
+                               WHERE t.name = ? ORDER BY i.creator""", (theme,)).fetchall()
+    else:
+        images = db.execute("SELECT * FROM images ORDER BY creator").fetchall()
+
+    for img in images:
+        citations.append(generate_apa_citation(img))
+
+    # Media citations
+    if course:
+        media = db.execute("""SELECT m.apa_citation FROM media m
+                              JOIN media_course_relevance mcr ON m.id = mcr.media_id
+                              JOIN courses c ON mcr.course_id = c.id
+                              WHERE c.code = ? AND m.apa_citation IS NOT NULL ORDER BY m.creator""", (course,)).fetchall()
+    elif theme:
+        media = db.execute("""SELECT m.apa_citation FROM media m
+                              JOIN themes t ON m.theme_id = t.id
+                              WHERE t.name = ? AND m.apa_citation IS NOT NULL ORDER BY m.creator""", (theme,)).fetchall()
+    else:
+        media = db.execute("SELECT apa_citation FROM media WHERE apa_citation IS NOT NULL ORDER BY creator").fetchall()
+
+    for m in media:
+        citations.append(m['apa_citation'])
+
+    db.close()
+
+    label = course or theme or 'All'
+    text = f"References ({label})\n\n" + "\n\n".join(citations)
+    return text, 200, {'Content-Type': 'text/plain; charset=utf-8'}
 
 
 @app.route('/image/<int:image_id>/edit', methods=['GET', 'POST'])
