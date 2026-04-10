@@ -11,10 +11,13 @@
                     allowfullscreen></iframe>
         </div>
         {% else %}
-        <div style="background: var(--bg); padding: 40px; text-align: center; border-radius: 8px;">
-            <div style="font-size: 48px; margin-bottom: 12px;">&#127916;</div>
-            <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 16px;">{{ media.source or 'Video file' }}</div>
-            <a href="{{ media.url }}" target="_blank" class="btn btn-primary">Open Video</a>
+        <div style="background: var(--bg); text-align: center; border-radius: 8px; overflow: hidden;">
+            {% if media.thumbnail %}
+            <img src="{{ url_for('static', filename='uploads/' + media.thumbnail) }}" alt="{{ media.title }}" style="width: 100%; display: block;">
+            {% endif %}
+            <div style="padding: 20px;">
+                <a href="{{ media.url }}" target="_blank" class="btn btn-primary">Open Video</a>
+            </div>
         </div>
         {% endif %}
     </div>

@@ -7,6 +7,8 @@
     <a href="{{ url_for('media_detail', media_id=m.id) }}" class="image-card">
         {% if 'youtube.com' in m.url or 'youtu.be' in m.url %}
         <img src="https://img.youtube.com/vi/{{ m.url.split('v=')[1].split('&')[0] if 'v=' in m.url else '' }}/hqdefault.jpg" alt="{{ m.title }}" loading="lazy">
+        {% elif m.thumbnail %}
+        <img src="{{ url_for('static', filename='uploads/' + m.thumbnail) }}" alt="{{ m.title }}" loading="lazy">
         {% else %}
         <div style="height: 200px; background: var(--bg); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px;">
             <span style="font-size: 36px;">&#127916;</span>
