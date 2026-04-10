@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Media — Iris{% endblock %}
+{% block content %}
+{% if media %}
+<div class="image-grid">
+    {% for m in media %}
+    <a href="{{ url_for('media_detail', media_id=m.id) }}" class="image-card">
+        {% if 'youtube.com' in m.url or 'youtu.be' in m.url %}
+        <img src="https://img.youtube.com/vi/{{ m.url.split('v=')[1].split('&')[0] if 'v=' in m.url else '' }}/hqdefault.jpg" alt="{{ m.title }}" loading="lazy">
+        {% else %}
+        <div style="height: 200px; background: var(--bg); display: flex; align-items: center; justify-content: center; color: var(--text-muted);">Video</div>
+        {% endif %}
+        <div class="image-card-body">
+            <div class="image-card-title">{{ m.title }}</div>
+            <div class="image-card-meta">{{ m.creator or 'Unknown' }} | {{ m.source or 'Video' }}</div>
+            <span class="image-card-theme">Video</span>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <h2>No media yet</h2>
+    <p>Import a YouTube video via Import URL.</p>
+    <a href="{{ url_for('import_url') }}" class="btn btn-primary">Import URL</a>
+</div>
+{% endif %}
+{% endblock %}

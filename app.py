@@ -195,6 +195,43 @@ def import_url():
         tag_str = ''
 
         if url:
+            # Detect YouTube URLs
+            is_youtube = 'youtube.com/watch' in url or 'youtu.be/' in url
+            if is_youtube:
+                try:
+                    oembed = requests.get(f'https://www.youtube.com/oembed?url={url}&format=json', timeout=10).json()
+                    vid_title = oembed.get('title', 'Untitled Video')
+                    vid_author = oembed.get('author_name', 'Unknown')
+                    thumb_url = oembed.get('thumbnail_url', '')
+
+                    # Download thumbnail
+                    thumb_filename = None
+                    if thumb_url:
+                        safe = re.sub(r'[^\w\s\-]', '', vid_title).replace(' ', '_')[:60]
+                        thumb_filename = f"{safe}_thumb.jpg"
+                        thumb_path = os.path.join(UPLOAD_DIR, thumb_filename)
+                        counter = 1
+                        while os.path.exists(thumb_path):
+                            thumb_filename = f"{safe}_thumb_{counter}.jpg"
+                            thumb_path = os.path.join(UPLOAD_DIR, thumb_filename)
+                            counter += 1
+                        tresp = requests.get(thumb_url, timeout=10)
+                        with open(thumb_path, 'wb') as f:
+                            f.write(tresp.content)
+
+                    db.execute("""INSERT INTO media (title, creator, url, media_type, source)
+                                  VALUES (?, ?, ?, 'video', 'YouTube')""",
+                               (vid_title, vid_author, url))
+                    media_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+                    db.commit()
+                    db.close()
+                    return redirect(url_for('media_detail', media_id=media_id))
+                except Exception as e:
+                    flash(f'YouTube import failed: {str(e)}', 'error')
+                    db.close()
+                    return render_template('import_url.html')
+
             try:
                 headers = {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
@@ -273,6 +310,25 @@ def import_url():
 
     db.close()
     return render_template('import_url.html')
+
+
+@app.route('/media/<int:media_id>')
+def media_detail(media_id):
+    db = get_db()
+    media = db.execute("SELECT m.*, t.name as theme_name FROM media m LEFT JOIN themes t ON m.theme_id = t.id WHERE m.id = ?", (media_id,)).fetchone()
+    if not media:
+        return "Not found", 404
+    tags = db.execute("SELECT tg.name FROM tags tg JOIN media_tags mt ON tg.id = mt.tag_id WHERE mt.media_id = ?", (media_id,)).fetchall()
+    db.close()
+    return render_template('media_detail.html', media=media, tags=tags)
+
+
+@app.route('/media')
+def media_list():
+    db = get_db()
+    media = db.execute("SELECT m.*, t.name as theme_name FROM media m LEFT JOIN themes t ON m.theme_id = t.id ORDER BY m.created DESC").fetchall()
+    db.close()
+    return render_template('media_list.html', media=media)
 
 
 @app.route('/image/<int:image_id>/delete', methods=['POST'])

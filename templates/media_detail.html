@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ media.title }} — Iris{% endblock %}
+{% block content %}
+<div class="detail-container">
+    <div class="detail-image" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;">
+        <iframe src="https://www.youtube.com/embed/{{ media.url.split('v=')[1].split('&')[0] if 'v=' in media.url else '' }}"
+                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; border-radius: 8px;"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowfullscreen></iframe>
+    </div>
+    <div class="detail-panel">
+        <div class="detail-section">
+            <span class="image-card-theme" style="margin-bottom: 8px;">Video</span>
+            <div class="detail-title">{{ media.title }}</div>
+            <div class="detail-creator">{{ media.creator or 'Unknown' }}</div>
+            <div class="detail-date">{{ media.date or 'n.d.' }} | {{ media.source or 'YouTube' }}</div>
+        </div>
+
+        {% if media.description %}
+        <div class="detail-section">
+            <h3>Description</h3>
+            <div class="detail-description">{{ media.description }}</div>
+        </div>
+        {% endif %}
+
+        {% if tags %}
+        <div class="detail-section">
+            <h3>Tags</h3>
+            <div class="detail-tags">
+                {% for tag in tags %}
+                <span class="tag">{{ tag.name }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if media.apa_citation %}
+        <div class="detail-section">
+            <h3>APA 7th Citation (click to copy)</h3>
+            <div class="apa-citation">{{ media.apa_citation }}</div>
+        </div>
+        {% endif %}
+
+        <div class="detail-section">
+            <h3>Source</h3>
+            <a href="{{ media.url }}" target="_blank">{{ media.url }}</a>
+        </div>
+
+        <div class="btn-group">
+            <a href="{{ url_for('media_list') }}" class="btn btn-secondary">Back to Media</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
