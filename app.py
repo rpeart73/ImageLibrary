@@ -298,6 +298,55 @@ def themes():
     return render_template('themes.html', themes=themes)
 
 
+@app.route('/api/unprocessed')
+def api_unprocessed():
+    """Return images that need processing (no description)."""
+    db = get_db()
+    images = db.execute("""SELECT id, filename, title FROM images
+                           WHERE (description IS NULL OR description = '')
+                           ORDER BY id DESC""").fetchall()
+    db.close()
+    return jsonify([{'id': r['id'], 'filename': r['filename'], 'title': r['title']} for r in images])
+
+
+@app.route('/api/image/<int:image_id>', methods=['GET', 'PUT'])
+def api_image(image_id):
+    db = get_db()
+    if request.method == 'GET':
+        image = db.execute("SELECT * FROM images WHERE id=?", (image_id,)).fetchone()
+        if not image:
+            return jsonify({'error': 'not found'}), 404
+        db.close()
+        return jsonify(dict(image))
+
+    # PUT — update metadata (used by Claude Code after scanning)
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'no data'}), 400
+
+    from process_image import update_image_metadata, get_theme_id_by_name
+
+    theme_id = None
+    if 'theme' in data:
+        theme_id = get_theme_id_by_name(data['theme'])
+
+    update_image_metadata(
+        image_id,
+        title=data.get('title'),
+        creator=data.get('creator'),
+        date=data.get('date'),
+        description=data.get('description'),
+        narrative=data.get('narrative'),
+        source_url=data.get('source_url'),
+        rights=data.get('rights'),
+        medium=data.get('medium'),
+        theme_id=theme_id,
+        tags=data.get('tags')
+    )
+    db.close()
+    return jsonify({'ok': True, 'image_id': image_id})
+
+
 @app.route('/api/stats')
 def api_stats():
     db = get_db()
