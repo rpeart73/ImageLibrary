@@ -117,57 +117,50 @@ def image_edit(image_id):
 @app.route('/upload', methods=['GET', 'POST'])
 def upload():
     db = get_db()
+    uploaded = []
+
     if request.method == 'POST':
-        theme_id = request.form.get('theme_id') or None
-        title = request.form.get('title', '')
-        tag_str = request.form.get('tags', '')
+        files = request.files.getlist('files')
 
-        file = request.files.get('file')
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            filepath = os.path.join(UPLOAD_DIR, filename)
-
-            # Avoid overwrites
-            base, ext = os.path.splitext(filename)
-            counter = 1
-            while os.path.exists(filepath):
-                filename = f"{base}_{counter}{ext}"
+        for file in files:
+            if file and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
                 filepath = os.path.join(UPLOAD_DIR, filename)
-                counter += 1
 
-            file.save(filepath)
+                base, ext = os.path.splitext(filename)
+                counter = 1
+                while os.path.exists(filepath):
+                    filename = f"{base}_{counter}{ext}"
+                    filepath = os.path.join(UPLOAD_DIR, filename)
+                    counter += 1
 
-            # Get image dimensions
-            try:
-                with PILImage.open(filepath) as img:
-                    w, h = img.size
-            except:
-                w, h = 0, 0
+                file.save(filepath)
 
-            fsize = os.path.getsize(filepath)
-            mimetype = file.content_type
+                try:
+                    with PILImage.open(filepath) as img:
+                        w, h = img.size
+                except:
+                    w, h = 0, 0
 
-            db.execute("""INSERT INTO images (filename, original_filename, title, theme_id, file_size, width, height, mimetype)
-                          VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                       (filename, file.filename, title or base, theme_id, fsize, w, h, mimetype))
-            image_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+                fsize = os.path.getsize(filepath)
+                mimetype = file.content_type
 
-            for tag_name in [t.strip() for t in tag_str.split(',') if t.strip()]:
-                row = db.execute("SELECT id FROM tags WHERE name=?", (tag_name,)).fetchone()
-                if row:
-                    tid = row['id']
-                else:
-                    db.execute("INSERT INTO tags (name) VALUES (?)", (tag_name,))
-                    tid = db.execute("SELECT last_insert_rowid()").fetchone()[0]
-                db.execute("INSERT OR IGNORE INTO image_tags (image_id, tag_id) VALUES (?, ?)", (image_id, tid))
+                db.execute("""INSERT INTO images (filename, original_filename, title, file_size, width, height, mimetype)
+                              VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                           (filename, file.filename, base, fsize, w, h, mimetype))
 
-            db.commit()
+                uploaded.append({'filename': filename, 'file_size': fsize, 'width': w, 'height': h})
+
+        db.commit()
+
+        if len(uploaded) == 1:
+            # Single file — go to detail
+            image = db.execute("SELECT id FROM images WHERE filename=?", (uploaded[0]['filename'],)).fetchone()
             db.close()
-            return redirect(url_for('image_detail', image_id=image_id))
+            return redirect(url_for('image_detail', image_id=image['id']))
 
-    themes = db.execute("SELECT * FROM themes ORDER BY name").fetchall()
     db.close()
-    return render_template('upload.html', themes=themes)
+    return render_template('upload.html', uploaded=uploaded if uploaded else None)
 
 
 @app.route('/import-url', methods=['GET', 'POST'])
@@ -175,9 +168,9 @@ def import_url():
     db = get_db()
     if request.method == 'POST':
         url = request.form.get('url', '').strip()
-        title = request.form.get('title', '')
-        theme_id = request.form.get('theme_id') or None
-        tag_str = request.form.get('tags', '')
+        title = ''
+        theme_id = None
+        tag_str = ''
 
         if url:
             try:
@@ -191,9 +184,8 @@ def import_url():
                 content_type = resp.headers.get('content-type', '')
                 if 'image' not in content_type:
                     flash('URL did not return an image.', 'error')
-                    themes = db.execute("SELECT * FROM themes ORDER BY name").fetchall()
                     db.close()
-                    return render_template('import_url.html', themes=themes)
+                    return render_template('import_url.html')
 
                 # Determine filename
                 ext = 'jpg'
@@ -257,9 +249,8 @@ def import_url():
             except Exception as e:
                 flash(f'Import failed: {str(e)}', 'error')
 
-    themes = db.execute("SELECT * FROM themes ORDER BY name").fetchall()
     db.close()
-    return render_template('import_url.html', themes=themes)
+    return render_template('import_url.html')
 
 
 @app.route('/image/<int:image_id>/delete', methods=['POST'])
