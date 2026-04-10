@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Image Library{% endblock %}</title>
+    <title>{% block title %}Iris{% endblock %}</title>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <nav class="nav">
-        <a href="{{ url_for('index') }}" class="nav-brand">Image Library</a>
+        <a href="{{ url_for('index') }}" class="nav-brand">Iris — Image Library</a>
         <div class="nav-links">
             <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint == 'index' }}">Browse</a>
             <a href="{{ url_for('themes') }}" class="{{ 'active' if request.endpoint == 'themes' }}">Themes</a>
