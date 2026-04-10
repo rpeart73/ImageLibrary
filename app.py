@@ -319,8 +319,14 @@ def media_detail(media_id):
     if not media:
         return "Not found", 404
     tags = db.execute("SELECT tg.name FROM tags tg JOIN media_tags mt ON tg.id = mt.tag_id WHERE mt.media_id = ?", (media_id,)).fetchall()
+    course_relevance = db.execute("""SELECT mcr.relevance, mcr.fit, c.code, c.name
+                                     FROM media_course_relevance mcr
+                                     JOIN courses c ON mcr.course_id = c.id
+                                     WHERE mcr.media_id = ?
+                                     ORDER BY CASE mcr.fit WHEN 'strong' THEN 1 WHEN 'moderate' THEN 2 ELSE 3 END""",
+                                  (media_id,)).fetchall()
     db.close()
-    return render_template('media_detail.html', media=media, tags=tags)
+    return render_template('media_detail.html', media=media, tags=tags, course_relevance=course_relevance)
 
 
 @app.route('/media')
