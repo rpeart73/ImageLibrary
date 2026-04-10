@@ -2,11 +2,21 @@
 {% block title %}{{ media.title }} — Iris{% endblock %}
 {% block content %}
 <div class="detail-container">
-    <div class="detail-image" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;">
-        <iframe src="https://www.youtube.com/embed/{{ media.url.split('v=')[1].split('&')[0] if 'v=' in media.url else '' }}"
-                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; border-radius: 8px;"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowfullscreen></iframe>
+    <div class="detail-image">
+        {% if 'youtube.com' in media.url or 'youtu.be' in media.url %}
+        <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;">
+            <iframe src="https://www.youtube.com/embed/{{ media.url.split('v=')[1].split('&')[0] if 'v=' in media.url else '' }}"
+                    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; border-radius: 8px;"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowfullscreen></iframe>
+        </div>
+        {% else %}
+        <div style="background: var(--bg); padding: 40px; text-align: center; border-radius: 8px;">
+            <div style="font-size: 48px; margin-bottom: 12px;">&#127916;</div>
+            <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 16px;">{{ media.source or 'Video file' }}</div>
+            <a href="{{ media.url }}" target="_blank" class="btn btn-primary">Open Video</a>
+        </div>
+        {% endif %}
     </div>
     <div class="detail-panel">
         <div class="detail-section">

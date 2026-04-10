@@ -8,7 +8,10 @@
         {% if 'youtube.com' in m.url or 'youtu.be' in m.url %}
         <img src="https://img.youtube.com/vi/{{ m.url.split('v=')[1].split('&')[0] if 'v=' in m.url else '' }}/hqdefault.jpg" alt="{{ m.title }}" loading="lazy">
         {% else %}
-        <div style="height: 200px; background: var(--bg); display: flex; align-items: center; justify-content: center; color: var(--text-muted);">Video</div>
+        <div style="height: 200px; background: var(--bg); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px;">
+            <span style="font-size: 36px;">&#127916;</span>
+            <span style="font-size: 12px; color: var(--text-muted);">{{ m.source or 'Video' }}</span>
+        </div>
         {% endif %}
         <div class="image-card-body">
             <div class="image-card-title">{{ m.title }}</div>
