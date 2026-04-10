@@ -74,8 +74,17 @@ def image_detail(image_id):
 
     tags = db.execute("SELECT tg.name FROM tags tg JOIN image_tags it ON tg.id = it.tag_id WHERE it.image_id = ?", (image_id,)).fetchall()
     apa = generate_apa_citation(image)
+
+    # Course relevance
+    course_relevance = db.execute("""SELECT cr.relevance, cr.fit, c.code, c.name
+                                     FROM image_course_relevance cr
+                                     JOIN courses c ON cr.course_id = c.id
+                                     WHERE cr.image_id = ?
+                                     ORDER BY CASE cr.fit WHEN 'strong' THEN 1 WHEN 'moderate' THEN 2 ELSE 3 END""",
+                                  (image_id,)).fetchall()
+
     db.close()
-    return render_template('detail.html', image=image, tags=tags, apa=apa)
+    return render_template('detail.html', image=image, tags=tags, apa=apa, course_relevance=course_relevance)
 
 
 @app.route('/image/<int:image_id>/edit', methods=['GET', 'POST'])
@@ -287,6 +296,33 @@ def themes():
                            GROUP BY t.id ORDER BY t.name""").fetchall()
     db.close()
     return render_template('themes.html', themes=themes)
+
+
+@app.route('/api/image/<int:image_id>/courses', methods=['GET', 'PUT'])
+def api_image_courses(image_id):
+    db = get_db()
+    if request.method == 'GET':
+        rows = db.execute("""SELECT cr.relevance, cr.fit, c.code, c.name
+                             FROM image_course_relevance cr
+                             JOIN courses c ON cr.course_id = c.id
+                             WHERE cr.image_id = ?""", (image_id,)).fetchall()
+        db.close()
+        return jsonify([dict(r) for r in rows])
+
+    # PUT — batch set course relevance
+    data = request.get_json()
+    if not data or 'courses' not in data:
+        return jsonify({'error': 'expected {courses: [{code, relevance, fit}]}'}), 400
+
+    db.execute("DELETE FROM image_course_relevance WHERE image_id=?", (image_id,))
+    for entry in data['courses']:
+        course = db.execute("SELECT id FROM courses WHERE code=?", (entry['code'],)).fetchone()
+        if course:
+            db.execute("INSERT INTO image_course_relevance (image_id, course_id, relevance, fit) VALUES (?, ?, ?, ?)",
+                       (image_id, course['id'], entry['relevance'], entry.get('fit', 'strong')))
+    db.commit()
+    db.close()
+    return jsonify({'ok': True, 'image_id': image_id})
 
 
 @app.route('/api/unprocessed')
