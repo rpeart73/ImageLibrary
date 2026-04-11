@@ -37,23 +37,23 @@ const EXTERNAL_URLS = {
 // Research profiles
 const PROFILES = {
     full: {
-        api: ['openalex','core','crossref','semantic_scholar','eric','doaj','york_primo','britannica','wikimedia','wikipedia','smithsonian','loc','dpla','internet_archive','europeana','lac'],
+        api: ['openalex','core','eric','york_primo','britannica','wikimedia','wikipedia','smithsonian','loc','dpla','internet_archive','europeana','lac'],
         ext: ['jstor','seneca_lib','gscholar','blackpast','schomburg','bec','iportal'],
     },
     black: {
-        api: ['openalex','core','crossref','semantic_scholar','eric','doaj','york_primo','britannica','smithsonian','loc','dpla','internet_archive','wikimedia'],
+        api: ['openalex','core','eric','york_primo','britannica','smithsonian','loc','dpla','internet_archive','wikimedia'],
         ext: ['jstor','blackpast','schomburg','aodl','bec','project_muse','gscholar'],
     },
     indigenous: {
-        api: ['openalex','core','eric','doaj','york_primo','britannica','wikimedia','loc','dpla','internet_archive','lac'],
+        api: ['openalex','core','eric','york_primo','britannica','wikimedia','loc','dpla','internet_archive','lac'],
         ext: ['iportal','fnigc','isumatv','ourdigitalworld','bec','gscholar','canadiana'],
     },
     canadian: {
-        api: ['openalex','core','crossref','eric','york_primo','britannica','wikimedia','loc','dpla','internet_archive','lac'],
+        api: ['openalex','core','eric','york_primo','britannica','wikimedia','loc','dpla','internet_archive','lac'],
         ext: ['seneca_lib','bec','iportal','statscan','canadiana','archives_ontario','ourdigitalworld'],
     },
     quick: {
-        api: ['openalex','semantic_scholar'],
+        api: ['openalex','york_primo'],
         ext: ['gscholar'],
     },
     custom: null,
