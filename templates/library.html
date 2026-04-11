@@ -250,7 +250,7 @@
             <div class="web-research-header">
                 <h3 class="section-heading">Search the Web</h3>
                 <p class="web-research-desc">Find images from Wikimedia Commons, Smithsonian NMAAHC, Library of Congress, and Wikipedia</p>
-                <button class="btn btn-primary" id="web-search-btn" onclick="searchWeb('{{ search or '' }}')">Search: "{{ search or '' }}"</button>
+                <button class="btn btn-primary" id="web-search-btn" onclick="searchWeb('{{ search or '' }}', this)">Search: "{{ search or '' }}"</button>
             </div>
             <div id="web-results" class="web-results-grid"></div>
             <div id="web-loading" class="web-loading" style="display:none;">Searching institutional collections...</div>
@@ -269,7 +269,7 @@
             {% endif %}
             <div class="zero-results-web">
                 <p>Search institutional collections instead?</p>
-                <button class="btn btn-primary" onclick="searchWeb('{{ search }}')">Search Wikimedia, Smithsonian, Library of Congress</button>
+                <button class="btn btn-primary" onclick="searchWeb('{{ search }}', this)">Search Wikimedia, Smithsonian, Library of Congress</button>
                 <div id="web-results" class="web-results-grid" style="margin-top: 16px;"></div>
                 <div id="web-loading" class="web-loading" style="display:none;">Searching institutional collections...</div>
             </div>
@@ -464,22 +464,24 @@ function renderSearchHistory() {
 renderSearchHistory();
 
 // Web research
-function searchWeb(query) {
+function searchWeb(query, triggerBtn) {
     if (!query) return;
-    const resultsDiv = document.getElementById('web-results');
-    const loading = document.getElementById('web-loading');
-    const btn = document.getElementById('web-search-btn');
-    loading.style.display = 'block';
-    btn.disabled = true;
-    btn.textContent = 'Searching...';
-    resultsDiv.innerHTML = '';
+    // Find the closest results/loading containers to the button that was clicked
+    const btn = triggerBtn || document.getElementById('web-search-btn');
+    const section = btn ? btn.closest('.web-research-section, .zero-results-web') : document;
+    const resultsDiv = section ? section.querySelector('.web-results-grid') || document.getElementById('web-results') : document.getElementById('web-results');
+    const loading = section ? section.querySelector('.web-loading') || document.getElementById('web-loading') : document.getElementById('web-loading');
+
+    if (loading) loading.style.display = 'block';
+    if (btn) { btn.disabled = true; btn.textContent = 'Searching...'; }
+    if (resultsDiv) resultsDiv.innerHTML = '';
 
     fetch('/api/web-search?q=' + encodeURIComponent(query))
         .then(r => r.json())
         .then(data => {
-            loading.style.display = 'none';
-            btn.disabled = false;
-            btn.textContent = 'Search again';
+            if (loading) loading.style.display = 'none';
+            if (btn) { btn.disabled = false; btn.textContent = 'Search again'; }
+            if (!resultsDiv) return;
             if (!data.results || !data.results.length) {
                 resultsDiv.innerHTML = '<p class="web-no-results">No web results found. Try different search terms.</p>';
                 return;
@@ -501,11 +503,11 @@ function searchWeb(query) {
                     </div>
                 `).join('');
         })
-        .catch(() => {
-            loading.style.display = 'none';
-            btn.disabled = false;
-            btn.textContent = 'Search: "' + query + '"';
-            resultsDiv.innerHTML = '<p class="web-no-results">Search failed. Check your connection.</p>';
+        .catch(err => {
+            if (loading) loading.style.display = 'none';
+            if (btn) { btn.disabled = false; btn.textContent = 'Search: "' + query + '"'; }
+            if (resultsDiv) resultsDiv.innerHTML = '<p class="web-no-results">Search failed. Check your connection.</p>';
+            console.error('Web search error:', err);
         });
 }
 </script>
