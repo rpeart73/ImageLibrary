@@ -49,8 +49,10 @@
                 return;
             }
             searchResults = data.results;
+            const articles = data.articles || [];
 
-            let html = '<p class="web-sources">' + data.results.length + ' results from ' + (data.sources || []).join(', ') + '</p>';
+            const totalCount = data.results.length + articles.length;
+            let html = '<p class="web-sources">' + totalCount + ' results (' + data.results.length + ' images, ' + articles.length + ' articles) from ' + (data.sources || []).join(', ') + '</p>';
 
             // Action bar: select controls + brain button
             html += '<div class="web-action-bar">';
@@ -84,6 +86,46 @@
                     </div>`;
             });
             html += '</div>';
+
+            // Articles section
+            if (articles.length) {
+                html += '<div class="articles-section">';
+                html += '<h3 class="section-heading">Academic Articles</h3>';
+                html += '<p class="web-research-desc">From Semantic Scholar and ERIC. Select articles to assess with Seneca Brain or export citations.</p>';
+                html += '<div class="articles-list">';
+                articles.forEach((a, i) => {
+                    html += `
+                        <div class="article-card" id="article-${i}">
+                            <label class="web-select">
+                                <input type="checkbox" class="article-checkbox" data-index="${i}" onchange="updateCounts()">
+                            </label>
+                            <div class="article-info">
+                                <div class="article-title">
+                                    ${a.url ? '<a href="' + a.url + '" target="_blank">' + a.title + '</a>' : a.title}
+                                </div>
+                                <div class="article-meta">
+                                    ${a.authors} (${a.year})${a.journal ? ' | <em>' + a.journal + '</em>' : ''}${a.citations ? ' | ' + a.citations + ' citations' : ''}
+                                    <span class="article-source-badge">${a.source}</span>
+                                </div>
+                                ${a.abstract ? '<div class="article-abstract">' + a.abstract + (a.abstract.length >= 295 ? '...' : '') + '</div>' : ''}
+                                <div class="article-actions">
+                                    <details class="article-citation-details">
+                                        <summary>APA Citation</summary>
+                                        <code class="apa-citation article-apa">${a.apa_citation}</code>
+                                    </details>
+                                    ${a.doi ? '<a href="https://doi.org/' + a.doi + '" target="_blank" class="btn btn-secondary btn-sm">DOI</a>' : ''}
+                                    ${a.url ? '<a href="' + a.url + '" target="_blank" class="btn btn-secondary btn-sm">View</a>' : ''}
+                                </div>
+                            </div>
+                        </div>`;
+                });
+                html += '</div>';
+                html += '<div class="article-export-bar">';
+                html += '<button type="button" class="btn btn-secondary btn-sm" onclick="exportArticleCitations()">Export Selected Citations (.txt)</button>';
+                html += '</div>';
+                html += '</div>';
+            }
+
             resultsDiv.innerHTML = html;
         })
         .catch(err => {
@@ -214,6 +256,27 @@
             .catch(() => { failed++; importNext(i + 1); });
         }
         importNext(0);
+    };
+    // Export selected article citations
+    window.exportArticleCitations = function() {
+        const checked = document.querySelectorAll('.article-checkbox:checked');
+        if (!checked.length) { alert('Select articles first'); return; }
+        const articles = {{ (course or '')|tojson }};  // just need to access searchResults
+        const citations = [];
+        checked.forEach(cb => {
+            const card = cb.closest('.article-card');
+            const apa = card.querySelector('.article-apa');
+            if (apa) citations.push(apa.textContent.trim());
+        });
+        citations.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+        const text = 'References\n\n' + citations.join('\n\n');
+        const blob = new Blob([text], {type: 'text/plain'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'iris_article_citations_apa7.txt';
+        a.click();
+        URL.revokeObjectURL(url);
     };
 })();
 </script>

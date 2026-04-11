@@ -351,7 +351,96 @@ def web_search():
     except Exception:
         pass
 
-    return jsonify({'results': results[:20], 'query': q, 'sources': ['Wikimedia Commons', 'Wikipedia', 'Smithsonian NMAAHC', 'Library of Congress']})
+    # 5. Semantic Scholar (academic articles)
+    articles = []
+    try:
+        resp = requests.get('https://api.semanticscholar.org/graph/v1/paper/search', params={
+            'query': q,
+            'limit': 8,
+            'fields': 'title,authors,year,abstract,url,externalIds,citationCount,journal',
+        }, headers={'User-Agent': 'IrisImageLibrary/1.0 (educational)'},
+        timeout=10)
+
+        if resp.status_code == 200:
+            data = resp.json()
+            for paper in data.get('data', []):
+                authors = ', '.join([a.get('name', '') for a in paper.get('authors', [])[:3]])
+                if len(paper.get('authors', [])) > 3:
+                    authors += ' et al.'
+                doi = paper.get('externalIds', {}).get('DOI', '')
+                year = paper.get('year', 'n.d.')
+                title = paper.get('title', '')
+                journal_info = paper.get('journal', {})
+                journal_name = journal_info.get('name', '') if journal_info else ''
+
+                apa = f"{authors}. ({year}). {title}."
+                if journal_name:
+                    apa += f" *{journal_name}*."
+                if doi:
+                    apa += f" https://doi.org/{doi}"
+
+                articles.append({
+                    'title': title,
+                    'authors': authors,
+                    'year': year,
+                    'abstract': (paper.get('abstract') or '')[:300],
+                    'url': paper.get('url', ''),
+                    'doi': doi,
+                    'journal': journal_name,
+                    'citations': paper.get('citationCount', 0),
+                    'apa_citation': apa,
+                    'source': 'Semantic Scholar',
+                })
+    except Exception:
+        pass
+
+    # 6. ERIC (education research)
+    try:
+        resp = requests.get('https://api.ies.ed.gov/eric/', params={
+            'search': q,
+            'rows': 6,
+            'format': 'json',
+        }, timeout=10)
+
+        if resp.status_code == 200:
+            data = resp.json()
+            for doc in data.get('response', {}).get('docs', []):
+                authors = doc.get('author', ['Unknown'])
+                if isinstance(authors, list):
+                    authors = ', '.join(authors[:3])
+                year = doc.get('publicationdateyear', 'n.d.')
+                title = doc.get('title', '')
+                desc = doc.get('description', '')
+                eric_id = doc.get('id', '')
+                journal_name = doc.get('source', '')
+
+                apa = f"{authors}. ({year}). {title}."
+                if journal_name:
+                    apa += f" *{journal_name}*."
+                if eric_id:
+                    apa += f" https://eric.ed.gov/?id={eric_id}"
+
+                articles.append({
+                    'title': title,
+                    'authors': authors,
+                    'year': str(year),
+                    'abstract': (desc or '')[:300],
+                    'url': f"https://eric.ed.gov/?id={eric_id}" if eric_id else '',
+                    'doi': '',
+                    'journal': journal_name,
+                    'citations': 0,
+                    'apa_citation': apa,
+                    'source': 'ERIC',
+                })
+    except Exception:
+        pass
+
+    return jsonify({
+        'results': results[:20],
+        'articles': articles[:12],
+        'query': q,
+        'sources': ['Wikimedia Commons', 'Wikipedia', 'Smithsonian NMAAHC', 'Library of Congress', 'Semantic Scholar', 'ERIC'],
+    })
 
 
 @app.route('/api/export-citations', methods=['POST'])
