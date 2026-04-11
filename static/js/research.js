@@ -11,11 +11,11 @@ let currentSort = 'quality';
 // External search URL generators
 const EXTERNAL_URLS = {
     // Institutional (York gives access to ProQuest, EBSCO, SAGE, Wiley, Springer, T&F, Oxford, Cambridge)
-    york_lib: q => `https://primo.exlibrisgroup.com/discovery/search?query=any,contains,${encodeURIComponent(q)}&tab=Everything&search_scope=MyInst_and_CI&vid=01OCUL_YOR:YOR_DEFAULT`,
+    york_lib: q => `https://ocul-yor.primo.exlibrisgroup.com/discovery/search?query=any,contains,${encodeURIComponent(q)}&tab=Everything&search_scope=MyInst_and_CI&vid=01OCUL_YOR:YOR_DEFAULT`,
     jstor: q => `https://www.jstor.org/action/doBasicSearch?Query=${encodeURIComponent(q)}`,
     york_proquest: q => `https://www.proquest.com/advanced?query=${encodeURIComponent(q)}`,
     york_ebsco: q => `https://search.ebscohost.com/login.aspx?direct=true&bquery=${encodeURIComponent(q)}`,
-    seneca_lib: q => `https://primo.exlibrisgroup.com/discovery/search?query=any,contains,${encodeURIComponent(q)}&tab=Everything&search_scope=MyInst_and_CI&vid=01SENC_INST:01SENC_NDE`,
+    seneca_lib: q => `https://seneca.primo.exlibrisgroup.com/discovery/search?query=any,contains,${encodeURIComponent(q)}&tab=Everything&search_scope=MyInst_and_CI&vid=01SENC_INST:01SENC_NDE`,
     // General reference
     gscholar: q => `https://scholar.google.com/scholar?q=${encodeURIComponent(q)}`,
     britannica: q => `https://www.britannica.com/search?query=${encodeURIComponent(q)}`,
