@@ -5,6 +5,7 @@
 <div class="web-page-header">
     <h2>Web Search: "{{ query }}"</h2>
     <p class="web-research-desc">Searching Wikimedia Commons, Wikipedia, Smithsonian NMAAHC, and Library of Congress</p>
+    <a href="{{ url_for('library', q=query) }}" class="back-to-library">&larr; Back to library results</a>
     <form action="{{ url_for('web_search_page') }}" method="get" class="web-search-again">
         <input type="text" name="q" value="{{ query }}" placeholder="Search the web...">
         <select name="course" class="course-select">
@@ -44,26 +45,39 @@
         .then(data => {
             loading.style.display = 'none';
             if (!data.results || !data.results.length) {
-                resultsDiv.innerHTML = '<div class="web-no-results"><p>No results found for "' + query + '". Try different terms.</p></div>';
+                resultsDiv.innerHTML = '<div class="web-no-results"><p>No results found. Try different terms.</p></div>';
                 return;
             }
             searchResults = data.results;
+
             let html = '<p class="web-sources">' + data.results.length + ' results from ' + (data.sources || []).join(', ') + '</p>';
 
-            // Brain assess button
-            html += '<div class="brain-trigger"><button type="button" class="btn btn-secondary btn-sm" onclick="assessWithBrain()">Ask Seneca Brain to assess relevance</button></div>';
+            // Action bar: select controls + brain button
+            html += '<div class="web-action-bar">';
+            html += '<div class="web-select-controls">';
+            html += '<button type="button" class="btn btn-secondary btn-sm" onclick="toggleSelectAll()">Select All</button>';
+            html += '<button type="button" class="btn btn-secondary btn-sm" onclick="deselectAll()">Deselect All</button>';
+            html += '<span class="select-count" id="select-count">0 selected</span>';
+            html += '</div>';
+            html += '<div class="web-action-buttons">';
+            html += '<button type="button" class="btn btn-secondary btn-sm" id="assess-btn" onclick="assessSelected()" disabled>Ask Seneca Brain (0)</button>';
+            html += '<button type="button" class="btn btn-primary btn-sm" id="approve-btn" onclick="approveSelected()" disabled>Approve and Import (0)</button>';
+            html += '</div>';
+            html += '</div>';
 
             html += '<div class="web-results-grid">';
             data.results.forEach((r, i) => {
                 html += `
                     <div class="web-result-card" id="web-result-${i}">
-                        <img src="${r.thumb_url}" alt="${r.title}" class="web-thumb" loading="lazy" onerror="this.parentElement.classList.add('no-thumb')">
+                        <label class="web-select">
+                            <input type="checkbox" class="web-checkbox" data-index="${i}" onchange="updateCounts()">
+                        </label>
+                        <img src="${r.thumb_url}" alt="${r.title}" class="web-thumb" loading="lazy" onerror="this.style.display='none'">
                         <div class="web-result-info">
                             <div class="web-result-title">${r.title}</div>
-                            <div class="web-result-meta">${r.creator || 'Unknown'} | ${r.source} | ${r.license}</div>
+                            <div class="web-result-meta">${r.creator || 'Unknown'} | ${r.source} | ${r.license}${r.width && r.height ? ' | ' + r.width + '×' + r.height : ''}</div>
                             ${r.description ? '<div class="web-result-desc">' + r.description.substring(0, 200) + (r.description.length > 200 ? '...' : '') + '</div>' : ''}
                             <div class="web-result-actions">
-                                <a href="/import-url?url=${encodeURIComponent(r.full_url)}" class="btn btn-primary btn-sm">Import to Iris</a>
                                 <a href="${r.source_page}" target="_blank" class="btn btn-secondary btn-sm">View Source</a>
                             </div>
                         </div>
@@ -77,10 +91,36 @@
             resultsDiv.innerHTML = '<div class="web-no-results"><p>Search failed: ' + err.message + '</p></div>';
         });
 
-    // Brain assessment
-    window.assessWithBrain = function() {
-        if (!searchResults.length) return;
-        const btn = document.querySelector('.brain-trigger button');
+    // Selection management
+    window.getSelectedIndices = function() {
+        return [...document.querySelectorAll('.web-checkbox:checked')].map(cb => parseInt(cb.dataset.index));
+    };
+
+    window.updateCounts = function() {
+        const count = document.querySelectorAll('.web-checkbox:checked').length;
+        document.getElementById('select-count').textContent = count + ' selected';
+        document.getElementById('assess-btn').disabled = count === 0;
+        document.getElementById('assess-btn').textContent = 'Ask Seneca Brain (' + count + ')';
+        document.getElementById('approve-btn').disabled = count === 0;
+        document.getElementById('approve-btn').textContent = 'Approve and Import (' + count + ')';
+    };
+
+    window.toggleSelectAll = function() {
+        document.querySelectorAll('.web-checkbox').forEach(cb => cb.checked = true);
+        updateCounts();
+    };
+
+    window.deselectAll = function() {
+        document.querySelectorAll('.web-checkbox').forEach(cb => cb.checked = false);
+        updateCounts();
+    };
+
+    // Brain assessment on selected items only
+    window.assessSelected = function() {
+        const indices = getSelectedIndices();
+        if (!indices.length) return;
+
+        const btn = document.getElementById('assess-btn');
         btn.disabled = true;
         btn.textContent = 'Asking Seneca Brain...';
 
@@ -89,42 +129,91 @@
         panel.style.display = 'block';
         assessDiv.innerHTML = '<p class="web-loading">Querying Seneca Brain for curriculum relevance...</p>';
 
+        const selectedResults = indices.map(i => ({
+            title: searchResults[i].title,
+            description: (searchResults[i].description || '').substring(0, 150),
+            source: searchResults[i].source
+        }));
+
         fetch('/api/brain-assess', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                query: query,
-                course: course,
-                results: searchResults.slice(0, 8).map(r => ({
-                    title: r.title,
-                    description: (r.description || '').substring(0, 150),
-                    source: r.source
-                }))
-            })
+            body: JSON.stringify({ query: query, course: course, results: selectedResults })
         })
         .then(r => r.json())
         .then(data => {
             btn.disabled = false;
-            btn.textContent = 'Reassess';
+            btn.textContent = 'Reassess (' + indices.length + ')';
             if (data.assessment) {
-                // Format the brain's response
                 const formatted = data.assessment
                     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/\n- /g, '\n<br>• ')
+                    .replace(/\*   /g, '<br>&nbsp;&nbsp;')
+                    .replace(/\n\n/g, '<br><br>')
                     .replace(/\n/g, '<br>');
-                assessDiv.innerHTML = `<div class="brain-response">${formatted}</div>`;
+                let html = '<div class="brain-response">' + formatted + '</div>';
                 if (data.course) {
-                    assessDiv.innerHTML += `<p class="brain-course">Assessed for: <strong>${data.course}</strong></p>`;
+                    html += '<p class="brain-course">Assessed for: <strong>' + data.course + '</strong></p>';
                 }
+                assessDiv.innerHTML = html;
             } else {
                 assessDiv.innerHTML = '<p>Brain assessment unavailable.</p>';
             }
         })
         .catch(err => {
             btn.disabled = false;
-            btn.textContent = 'Ask Seneca Brain to assess relevance';
+            btn.textContent = 'Ask Seneca Brain (' + indices.length + ')';
             assessDiv.innerHTML = '<p>Brain query failed: ' + err.message + '</p>';
         });
+    };
+
+    // Approve and import selected items
+    window.approveSelected = function() {
+        const indices = getSelectedIndices();
+        if (!indices.length) return;
+
+        const btn = document.getElementById('approve-btn');
+        btn.disabled = true;
+        btn.textContent = 'Importing...';
+
+        let imported = 0;
+        let failed = 0;
+        const total = indices.length;
+
+        // Import sequentially to avoid overwhelming the server
+        function importNext(i) {
+            if (i >= indices.length) {
+                btn.textContent = imported + ' imported' + (failed > 0 ? ', ' + failed + ' failed' : '');
+                setTimeout(() => {
+                    btn.disabled = false;
+                    updateCounts();
+                }, 2000);
+                return;
+            }
+            const r = searchResults[indices[i]];
+            fetch('/import-url', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: 'url=' + encodeURIComponent(r.full_url),
+                redirect: 'follow'
+            })
+            .then(resp => {
+                if (resp.ok || resp.redirected) {
+                    imported++;
+                    // Mark the card as imported
+                    const card = document.getElementById('web-result-' + indices[i]);
+                    if (card) {
+                        card.classList.add('imported');
+                        card.querySelector('.web-result-actions').innerHTML += '<span class="imported-badge">Imported</span>';
+                    }
+                } else {
+                    failed++;
+                }
+                btn.textContent = 'Importing ' + (i + 1) + '/' + total + '...';
+                importNext(i + 1);
+            })
+            .catch(() => { failed++; importNext(i + 1); });
+        }
+        importNext(0);
     };
 })();
 </script>

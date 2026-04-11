@@ -113,8 +113,12 @@ def brain_assess():
     brain_prompt = (
         f"I found these images/media while searching for '{query}'"
         f"{' for course ' + course if course else ''}. "
-        f"For each item, rate its relevance to the course curriculum on a scale of "
-        f"strong/moderate/weak and explain in one sentence why.\n\n{items_text}"
+        f"For each item: (1) Rate relevance as strong, moderate, or weak. "
+        f"(2) Explain in 2 to 3 sentences WHY it is relevant or not, connecting it to specific "
+        f"course themes, weekly topics, or learning outcomes. "
+        f"(3) Suggest which weekly module or assignment it could support. "
+        f"(4) Note any pedagogical value: does it illustrate a concept, provoke discussion, "
+        f"or serve as a primary source?\n\n{items_text}"
     )
 
     try:

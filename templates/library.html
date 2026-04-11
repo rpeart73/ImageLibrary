@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Iris — Library Search{% endblock %}
+{% block title %}{% if has_search %}{{ total_count }} results: {{ search }} — Iris{% else %}Iris — Image and Media Library{% endif %}{% endblock %}
 {% block content %}
 
 <div class="library-hero">
     <h1 class="library-title">Iris</h1>
     <p class="library-subtitle">Image and Media Library for Black Studies</p>
-    <form class="library-search-form" action="{{ url_for('library') }}" method="get" id="library-search-form" onsubmit="saveSearch()">
+    <form class="library-search-form" action="{{ url_for('library') }}" method="get" id="library-search-form" onsubmit="saveSearch(); document.getElementById('search-loading').style.display='block'">
         <div class="search-bar-wrapper">
             <select name="field" class="search-field-select">
                 <option value="all" {{ 'selected' if field == 'all' }}>All Fields</option>
@@ -29,6 +29,7 @@
         </div>
         {% endif %}
     </form>
+    <div id="search-loading" class="search-loading" style="display:none">Searching...</div>
 </div>
 
 {% if not has_search %}
@@ -326,7 +327,7 @@
                     dropdown.innerHTML = items.map(i =>
                         `<div class="ac-item" data-text="${i.text}">
                             <span class="ac-text">${i.text}</span>
-                            <span class="ac-type">${i.type}</span>
+                            <span class="ac-type" data-type="${i.type}">${i.type}</span>
                         </div>`
                     ).join('');
                     dropdown.style.display = 'block';

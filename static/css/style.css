@@ -464,8 +464,21 @@ a:hover { color: var(--accent-hover); }
 }
 .ac-item:hover { background: var(--accent-light); }
 .ac-text { color: var(--text); }
-.ac-type { font-size: 11px; color: var(--text-muted); text-transform: uppercase; }
+.ac-type {
+    font-size: 10px;
+    color: white;
+    text-transform: uppercase;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-weight: 600;
+}
+.ac-type[data-type="title"] { background: var(--accent); }
+.ac-type[data-type="creator"] { background: #6b7280; }
+.ac-type[data-type="tag"] { background: #8b5cf6; }
+.ac-type[data-type="theme"] { background: #d97706; }
+.ac-type[data-type="media"] { background: #6b21a8; }
 
+.search-loading { text-align: center; font-size: 14px; color: var(--text-muted); padding: 8px 0; }
 .active-filters {
     display: flex;
     gap: 8px;
@@ -884,6 +897,7 @@ a:hover { color: var(--accent-hover); }
     padding: 32px 24px 24px;
     border-bottom: 1px solid var(--border);
 }
+.back-to-library { font-size: 13px; color: var(--accent); display: inline-block; margin-bottom: 12px; }
 .web-page-header h2 { font-size: 22px; margin: 0 0 4px; }
 .web-search-again {
     display: flex;
@@ -912,6 +926,45 @@ a:hover { color: var(--accent-hover); }
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--surface);
+}
+/* Web search action bar */
+.web-action-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.web-select-controls { display: flex; align-items: center; gap: 8px; }
+.web-action-buttons { display: flex; align-items: center; gap: 8px; }
+.select-count { font-size: 13px; color: var(--text-muted); }
+.web-select {
+    display: flex;
+    align-items: flex-start;
+    padding-top: 4px;
+    flex-shrink: 0;
+}
+.web-checkbox {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+.web-result-card.imported {
+    border-color: var(--accent);
+    background: var(--accent-light);
+}
+.imported-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background: var(--accent);
+    color: white;
+    font-size: 11px;
+    border-radius: 3px;
+    font-weight: 600;
 }
 .brain-trigger { margin: 12px 0; }
 .brain-panel {
