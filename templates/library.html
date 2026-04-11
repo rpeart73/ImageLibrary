@@ -250,7 +250,7 @@
             <div class="web-research-header">
                 <h3 class="section-heading">Search the Web</h3>
                 <p class="web-research-desc">Find images from Wikimedia Commons, Smithsonian NMAAHC, Library of Congress, and Wikipedia</p>
-                <a href="{{ url_for('web_search_page', q=search) }}" target="_blank" class="btn btn-primary">Search the Web: "{{ search or '' }}"</a>
+                <button type="button" class="btn btn-primary" onclick="window.open('/web-search?q={{ search|urlencode }}', '_blank')">Search the Web: "{{ search or '' }}"</button>
             </div>
         </div>
 
@@ -267,7 +267,7 @@
             {% endif %}
             <div class="zero-results-web">
                 <p>Search institutional collections instead?</p>
-                <a href="{{ url_for('web_search_page', q=search) }}" target="_blank" class="btn btn-primary">Search Wikimedia, Smithsonian, Library of Congress</a>
+                <button type="button" class="btn btn-primary" onclick="window.open('/web-search?q={{ search|urlencode }}', '_blank')">Search Wikimedia, Smithsonian, Library of Congress</button>
             </div>
             <a href="{{ url_for('library') }}" style="display: block; margin-top: 16px;">Clear search</a>
         </div>
