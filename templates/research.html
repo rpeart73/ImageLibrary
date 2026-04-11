@@ -24,68 +24,110 @@
                 <button type="submit" class="btn btn-primary">Search</button>
             </div>
 
+            <div class="research-auth-bar" id="auth-bar">
+                <span style="font-size:12px;font-weight:500;color:var(--text-muted)">Connect libraries first:</span>
+                <a class="auth-link" href="https://yorku.primo.exlibrisgroup.com/discovery/account?vid=01OCUL_YOR:YOR_DEFAULT&section=overview" target="_blank" id="auth-york">Log in to York Library</a>
+                <a class="auth-link" href="https://senecapolytechnic.primo.exlibrisgroup.com/discovery/account?vid=01OCUL_SEN:SEN_DEFAULT&section=overview" target="_blank" id="auth-seneca">Log in to Seneca Library</a>
+                <a class="auth-link" href="https://www.jstor.org/action/showLogin" target="_blank" id="auth-jstor">Log in to JSTOR</a>
+                <span class="auth-status" id="auth-status">Not connected</span>
+            </div>
+
             <label class="two-eyed-toggle">
                 <input type="checkbox" id="two-eyed-toggle">
                 <span class="two-eyed-label">Two-Eyed Seeing</span>
                 <span class="two-eyed-desc">Simultaneously surface Indigenous perspectives alongside Western scholarship</span>
             </label>
 
+            <!-- Research Profiles -->
+            <div class="research-profiles">
+                <span style="font-size:12px;font-weight:600;color:var(--text-muted)">Research Profile:</span>
+                <button type="button" class="profile-btn profile-active" onclick="setProfile('full')" id="prof-full">Full Academic</button>
+                <button type="button" class="profile-btn" onclick="setProfile('black')" id="prof-black">Black Studies</button>
+                <button type="button" class="profile-btn" onclick="setProfile('indigenous')" id="prof-indigenous">Indigenous Perspectives</button>
+                <button type="button" class="profile-btn" onclick="setProfile('canadian')" id="prof-canadian">Canadian Focus</button>
+                <button type="button" class="profile-btn" onclick="setProfile('quick')" id="prof-quick">Quick Scan</button>
+                <button type="button" class="profile-btn" onclick="setProfile('custom')" id="prof-custom">Custom</button>
+                <span style="font-size:12px;color:var(--text-muted);margin-left:auto" id="source-count-label">26 sources selected</span>
+            </div>
+
             <details class="research-advanced">
-                <summary>Advanced: Source Selection and Filters</summary>
+                <summary>Sources and Filters (customize selection)</summary>
                 <div style="display:flex;gap:8px;margin:10px 0 4px">
-                    <button type="button" class="btn btn-secondary" style="font-size:11px;padding:4px 10px" onclick="document.querySelectorAll('.src-toggle').forEach(c=>c.checked=true);updateSourceCount()">Select All</button>
-                    <button type="button" class="btn btn-secondary" style="font-size:11px;padding:4px 10px" onclick="document.querySelectorAll('.src-toggle').forEach(c=>c.checked=false);updateSourceCount()">Clear All</button>
-                    <span style="font-size:12px;color:var(--text-muted);align-self:center;margin-left:8px" id="source-count-label">15 sources selected</span>
+                    <button type="button" class="btn btn-secondary" style="font-size:11px;padding:4px 10px" onclick="selectAllSources()">Select All</button>
+                    <button type="button" class="btn btn-secondary" style="font-size:11px;padding:4px 10px" onclick="clearAllSources()">Clear All</button>
                 </div>
                 <div class="research-advanced-grid">
                     <div class="research-adv-field">
-                        <label>Academic Databases (API search)</label>
+                        <label>Open Access (API search, results inline)</label>
                         <div class="research-source-toggles">
-                            <label><input type="checkbox" class="src-toggle" value="openalex" checked onchange="updateSourceCount()"> OpenAlex</label>
-                            <label><input type="checkbox" class="src-toggle" value="core" checked onchange="updateSourceCount()"> CORE</label>
-                            <label><input type="checkbox" class="src-toggle" value="crossref" checked onchange="updateSourceCount()"> CrossRef</label>
-                            <label><input type="checkbox" class="src-toggle" value="semantic_scholar" checked onchange="updateSourceCount()"> Semantic Scholar</label>
-                            <label><input type="checkbox" class="src-toggle" value="eric" checked onchange="updateSourceCount()"> ERIC</label>
-                            <label><input type="checkbox" class="src-toggle" value="doaj" checked onchange="updateSourceCount()"> DOAJ</label>
+                            <label><input type="checkbox" class="src-toggle" value="openalex" checked onchange="onSourceChange()"> OpenAlex (250M+ works)</label>
+                            <label><input type="checkbox" class="src-toggle" value="core" checked onchange="onSourceChange()"> CORE (200M+ OA articles)</label>
+                            <label><input type="checkbox" class="src-toggle" value="crossref" checked onchange="onSourceChange()"> CrossRef (DOI metadata)</label>
+                            <label><input type="checkbox" class="src-toggle" value="semantic_scholar" checked onchange="onSourceChange()"> Semantic Scholar</label>
+                            <label><input type="checkbox" class="src-toggle" value="eric" checked onchange="onSourceChange()"> ERIC (education)</label>
+                            <label><input type="checkbox" class="src-toggle" value="doaj" checked onchange="onSourceChange()"> DOAJ (OA journals)</label>
                         </div>
                     </div>
                     <div class="research-adv-field">
-                        <label>Image and Media Sources (API search)</label>
+                        <label>Images, Media, and Archives (API search, results inline)</label>
                         <div class="research-source-toggles">
-                            <label><input type="checkbox" class="src-toggle" value="wikimedia" checked onchange="updateSourceCount()"> Wikimedia</label>
-                            <label><input type="checkbox" class="src-toggle" value="wikipedia" checked onchange="updateSourceCount()"> Wikipedia</label>
-                            <label><input type="checkbox" class="src-toggle" value="smithsonian" checked onchange="updateSourceCount()"> Smithsonian</label>
-                            <label><input type="checkbox" class="src-toggle" value="loc" checked onchange="updateSourceCount()"> Library of Congress</label>
-                            <label><input type="checkbox" class="src-toggle" value="dpla" checked onchange="updateSourceCount()"> DPLA</label>
-                            <label><input type="checkbox" class="src-toggle" value="internet_archive" checked onchange="updateSourceCount()"> Internet Archive</label>
-                            <label><input type="checkbox" class="src-toggle" value="europeana" checked onchange="updateSourceCount()"> Europeana</label>
-                            <label><input type="checkbox" class="src-toggle" value="lac" checked onchange="updateSourceCount()"> Library and Archives Canada</label>
+                            <label><input type="checkbox" class="src-toggle" value="wikimedia" checked onchange="onSourceChange()"> Wikimedia Commons</label>
+                            <label><input type="checkbox" class="src-toggle" value="wikipedia" checked onchange="onSourceChange()"> Wikipedia</label>
+                            <label><input type="checkbox" class="src-toggle" value="smithsonian" checked onchange="onSourceChange()"> Smithsonian NMAAHC</label>
+                            <label><input type="checkbox" class="src-toggle" value="loc" checked onchange="onSourceChange()"> Library of Congress</label>
+                            <label><input type="checkbox" class="src-toggle" value="dpla" checked onchange="onSourceChange()"> DPLA</label>
+                            <label><input type="checkbox" class="src-toggle" value="internet_archive" checked onchange="onSourceChange()"> Internet Archive</label>
+                            <label><input type="checkbox" class="src-toggle" value="europeana" checked onchange="onSourceChange()"> Europeana</label>
+                            <label><input type="checkbox" class="src-toggle" value="lac" checked onchange="onSourceChange()"> Library and Archives Canada</label>
                         </div>
                     </div>
                     <div class="research-adv-field">
-                        <label>Institutional Libraries (opens with your credentials)</label>
+                        <label>York Institutional Access (opens in new tab, includes ProQuest, EBSCO, SAGE, Wiley, Springer, T&F, Oxford, Cambridge)</label>
                         <div class="research-source-toggles">
-                            <label><input type="checkbox" class="ext-toggle" value="jstor" checked onchange="updateSourceCount()"> JSTOR</label>
-                            <label><input type="checkbox" class="ext-toggle" value="york_lib" onchange="updateSourceCount()"> York University Library</label>
-                            <label><input type="checkbox" class="ext-toggle" value="seneca_lib" onchange="updateSourceCount()"> Seneca Library</label>
-                            <label><input type="checkbox" class="ext-toggle" value="gscholar" onchange="updateSourceCount()"> Google Scholar</label>
+                            <label><input type="checkbox" class="ext-toggle" value="york_lib" checked onchange="onSourceChange()"> York Library (all databases)</label>
+                            <label><input type="checkbox" class="ext-toggle" value="jstor" checked onchange="onSourceChange()"> JSTOR</label>
+                            <label><input type="checkbox" class="ext-toggle" value="york_proquest" onchange="onSourceChange()"> ProQuest (via York)</label>
+                            <label><input type="checkbox" class="ext-toggle" value="york_ebsco" onchange="onSourceChange()"> EBSCOhost (via York)</label>
+                        </div>
+                    </div>
+                    <div class="research-adv-field">
+                        <label>Seneca Institutional Access</label>
+                        <div class="research-source-toggles">
+                            <label><input type="checkbox" class="ext-toggle" value="seneca_lib" checked onchange="onSourceChange()"> Seneca Library (all databases)</label>
+                        </div>
+                    </div>
+                    <div class="research-adv-field">
+                        <label>General Reference</label>
+                        <div class="research-source-toggles">
+                            <label><input type="checkbox" class="ext-toggle" value="gscholar" checked onchange="onSourceChange()"> Google Scholar</label>
+                            <label><input type="checkbox" class="ext-toggle" value="britannica" onchange="onSourceChange()"> Britannica</label>
                         </div>
                     </div>
                     <div class="research-adv-field">
                         <label>Black Studies Collections</label>
                         <div class="research-source-toggles">
-                            <label><input type="checkbox" class="ext-toggle" value="blackpast" onchange="updateSourceCount()"> BlackPast.org</label>
-                            <label><input type="checkbox" class="ext-toggle" value="schomburg" onchange="updateSourceCount()"> Schomburg (NYPL)</label>
-                            <label><input type="checkbox" class="ext-toggle" value="aodl" onchange="updateSourceCount()"> African Digital Library</label>
-                            <label><input type="checkbox" class="ext-toggle" value="bec" onchange="updateSourceCount()"> Black Experience in Canada</label>
+                            <label><input type="checkbox" class="ext-toggle" value="blackpast" checked onchange="onSourceChange()"> BlackPast.org</label>
+                            <label><input type="checkbox" class="ext-toggle" value="schomburg" checked onchange="onSourceChange()"> Schomburg Center (NYPL)</label>
+                            <label><input type="checkbox" class="ext-toggle" value="aodl" onchange="onSourceChange()"> African Online Digital Library</label>
+                            <label><input type="checkbox" class="ext-toggle" value="bec" checked onchange="onSourceChange()"> Black Experience in Canada</label>
+                            <label><input type="checkbox" class="ext-toggle" value="project_muse" onchange="onSourceChange()"> Project MUSE (humanities)</label>
                         </div>
                     </div>
                     <div class="research-adv-field">
                         <label>Indigenous Knowledge</label>
                         <div class="research-source-toggles">
-                            <label><input type="checkbox" class="ext-toggle" value="iportal" onchange="updateSourceCount()"> iPortal (Indigenous Studies)</label>
-                            <label><input type="checkbox" class="ext-toggle" value="fnigc" onchange="updateSourceCount()"> FNIGC (First Nations)</label>
-                            <label><input type="checkbox" class="ext-toggle" value="isumatv" onchange="updateSourceCount()"> IsumaTV (Inuit Media)</label>
+                            <label><input type="checkbox" class="ext-toggle" value="iportal" checked onchange="onSourceChange()"> iPortal (Indigenous Studies)</label>
+                            <label><input type="checkbox" class="ext-toggle" value="fnigc" onchange="onSourceChange()"> FNIGC (First Nations)</label>
+                            <label><input type="checkbox" class="ext-toggle" value="isumatv" onchange="onSourceChange()"> IsumaTV (Inuit media)</label>
+                            <label><input type="checkbox" class="ext-toggle" value="ourdigitalworld" onchange="onSourceChange()"> OurDigitalWorld (Ontario)</label>
+                        </div>
+                    </div>
+                    <div class="research-adv-field">
+                        <label>Canadian Government and Archives</label>
+                        <div class="research-source-toggles">
+                            <label><input type="checkbox" class="ext-toggle" value="statscan" onchange="onSourceChange()"> Statistics Canada</label>
+                            <label><input type="checkbox" class="ext-toggle" value="canadiana" onchange="onSourceChange()"> Canadiana.ca</label>
+                            <label><input type="checkbox" class="ext-toggle" value="archives_ontario" onchange="onSourceChange()"> Archives of Ontario</label>
                         </div>
                     </div>
                 </div>

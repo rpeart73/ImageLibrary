@@ -8,23 +8,138 @@ let allResults = [];
 let twoEyedResults = [];
 let currentSort = 'quality';
 
-// External search URL generators (databases without free APIs)
+// External search URL generators
 const EXTERNAL_URLS = {
-    // Institutional
-    jstor: q => `https://www.jstor.org/action/doBasicSearch?Query=${encodeURIComponent(q)}`,
+    // Institutional (York gives access to ProQuest, EBSCO, SAGE, Wiley, Springer, T&F, Oxford, Cambridge)
     york_lib: q => `https://yorku.primo.exlibrisgroup.com/discovery/search?query=any,contains,${encodeURIComponent(q)}&tab=Everything&search_scope=MyInst_and_CI&vid=01OCUL_YOR:YOR_DEFAULT`,
+    jstor: q => `https://www.jstor.org/action/doBasicSearch?Query=${encodeURIComponent(q)}`,
+    york_proquest: q => `https://www.proquest.com/advanced?query=${encodeURIComponent(q)}`,
+    york_ebsco: q => `https://search.ebscohost.com/login.aspx?direct=true&bquery=${encodeURIComponent(q)}`,
     seneca_lib: q => `https://senecapolytechnic.primo.exlibrisgroup.com/discovery/search?query=any,contains,${encodeURIComponent(q)}&tab=Everything&search_scope=MyInst_and_CI&vid=01OCUL_SEN:SEN_DEFAULT`,
+    // General reference
     gscholar: q => `https://scholar.google.com/scholar?q=${encodeURIComponent(q)}`,
+    britannica: q => `https://www.britannica.com/search?query=${encodeURIComponent(q)}`,
     // Black Studies
     blackpast: q => `https://www.blackpast.org/?s=${encodeURIComponent(q)}`,
     schomburg: q => `https://digitalcollections.nypl.org/search/index?utf8=%E2%9C%93&keywords=${encodeURIComponent(q)}#/?scroll=24`,
     aodl: q => `https://www.aodl.org/search?q=${encodeURIComponent(q)}`,
     bec: q => `https://www.bac-lac.gc.ca/eng/search/Pages/record-search.aspx?DataSource=Archives&q=${encodeURIComponent(q)}`,
+    project_muse: q => `https://muse.jhu.edu/search?action=search&query=${encodeURIComponent(q)}`,
     // Indigenous
     iportal: q => `https://iportal.usask.ca/action/search/list?q=${encodeURIComponent(q)}`,
     fnigc: q => `https://fnigc.ca/?s=${encodeURIComponent(q)}`,
     isumatv: q => `https://www.isuma.tv/search/node/${encodeURIComponent(q)}`,
+    ourdigitalworld: q => `https://search.ourdigitalworld.org/search?q=${encodeURIComponent(q)}`,
+    // Canadian government
+    statscan: q => `https://www.statcan.gc.ca/en/search/search-results?q=${encodeURIComponent(q)}`,
+    canadiana: q => `https://www.canadiana.ca/search?q=${encodeURIComponent(q)}`,
+    archives_ontario: q => `https://ao.minisisinc.com/scripts/mwimain.dll/144/DESCRIPTION_WEB/WEB_DESC_SRCH?SESSIONSEARCH&exp=keyword+ct+${encodeURIComponent(q)}`,
 };
+
+// Research profiles
+const PROFILES = {
+    full: {
+        api: ['openalex','core','crossref','semantic_scholar','eric','doaj','wikimedia','wikipedia','smithsonian','loc','dpla','internet_archive','europeana','lac'],
+        ext: ['york_lib','jstor','seneca_lib','gscholar','blackpast','schomburg','bec','iportal'],
+    },
+    black: {
+        api: ['openalex','core','crossref','semantic_scholar','eric','doaj','smithsonian','loc','dpla','internet_archive','wikimedia'],
+        ext: ['york_lib','jstor','blackpast','schomburg','aodl','bec','project_muse','gscholar'],
+    },
+    indigenous: {
+        api: ['openalex','core','eric','doaj','wikimedia','loc','dpla','internet_archive','lac'],
+        ext: ['york_lib','iportal','fnigc','isumatv','ourdigitalworld','bec','gscholar','canadiana'],
+    },
+    canadian: {
+        api: ['openalex','core','crossref','eric','wikimedia','loc','dpla','internet_archive','lac'],
+        ext: ['york_lib','seneca_lib','bec','iportal','statscan','canadiana','archives_ontario','ourdigitalworld'],
+    },
+    quick: {
+        api: ['openalex','semantic_scholar'],
+        ext: ['gscholar'],
+    },
+    custom: null,
+};
+
+function setProfile(name) {
+    document.querySelectorAll('.profile-btn').forEach(b => b.classList.remove('profile-active'));
+    document.getElementById('prof-' + name).classList.add('profile-active');
+    if (name === 'custom') { updateSourceCount(); return; }
+    const profile = PROFILES[name];
+    if (!profile) return;
+    document.querySelectorAll('.src-toggle').forEach(c => c.checked = false);
+    document.querySelectorAll('.ext-toggle').forEach(c => c.checked = false);
+    profile.api.forEach(v => { const cb = document.querySelector(`.src-toggle[value="${v}"]`); if (cb) cb.checked = true; });
+    profile.ext.forEach(v => { const cb = document.querySelector(`.ext-toggle[value="${v}"]`); if (cb) cb.checked = true; });
+    updateSourceCount();
+}
+
+function onSourceChange() {
+    document.querySelectorAll('.profile-btn').forEach(b => b.classList.remove('profile-active'));
+    document.getElementById('prof-custom').classList.add('profile-active');
+    updateSourceCount();
+}
+
+function selectAllSources() {
+    document.querySelectorAll('.src-toggle, .ext-toggle').forEach(c => c.checked = true);
+    document.querySelectorAll('.profile-btn').forEach(b => b.classList.remove('profile-active'));
+    document.getElementById('prof-custom').classList.add('profile-active');
+    updateSourceCount();
+}
+
+function clearAllSources() {
+    document.querySelectorAll('.src-toggle, .ext-toggle').forEach(c => c.checked = false);
+    document.querySelectorAll('.profile-btn').forEach(b => b.classList.remove('profile-active'));
+    document.getElementById('prof-custom').classList.add('profile-active');
+    updateSourceCount();
+}
+
+// ─── Library Authentication ────────────────────────────
+
+const authState = { york: false, seneca: false, jstor: false };
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Load auth state from sessionStorage
+    ['york', 'seneca', 'jstor'].forEach(lib => {
+        if (sessionStorage.getItem('auth_' + lib) === '1') {
+            authState[lib] = true;
+            markConnected(lib);
+        }
+    });
+
+    // Track clicks on auth links
+    document.querySelectorAll('.auth-link').forEach(link => {
+        link.addEventListener('click', function() {
+            const lib = this.id.replace('auth-', '');
+            setTimeout(() => {
+                authState[lib] = true;
+                sessionStorage.setItem('auth_' + lib, '1');
+                markConnected(lib);
+                updateAuthStatus();
+            }, 500);
+        });
+    });
+    updateAuthStatus();
+});
+
+function markConnected(lib) {
+    const el = document.getElementById('auth-' + lib);
+    if (el) {
+        el.classList.add('connected');
+        el.textContent = el.textContent.replace('Log in to', '').trim() + ' (connected)';
+    }
+}
+
+function updateAuthStatus() {
+    const connected = Object.values(authState).filter(Boolean).length;
+    const total = Object.keys(authState).length;
+    const el = document.getElementById('auth-status');
+    if (el) {
+        if (connected === 0) el.textContent = 'Not connected';
+        else if (connected === total) el.textContent = 'All libraries connected';
+        else el.textContent = connected + '/' + total + ' connected';
+    }
+}
 
 // ─── Source Count ──────────────────────────────────────
 
@@ -241,6 +356,8 @@ function renderCard(r, isTwoEyed) {
                 ${r.url ? '<a href="' + r.url + '" target="_blank" class="research-link">Full text</a>' : ''}
                 ${r.doi ? '<a href="https://doi.org/' + r.doi + '" target="_blank" class="research-link">DOI</a>' : ''}
                 ${r.pdf_url ? '<a href="' + r.pdf_url + '" target="_blank" class="research-link">PDF</a>' : ''}
+                <a href="#" class="research-link" style="color:var(--accent);font-weight:600" onclick="pushToZotero(${r._idx}); return false;">Push to Zotero</a>
+                <a href="#" class="research-link" onclick="addOneToReadingList(${r._idx}); return false;">Save</a>
             </div>
         </div>
     </div>`;
@@ -357,6 +474,41 @@ function exportSelected(format) {
         a.click();
     }))
     .catch(err => alert('Export failed: ' + err.message));
+}
+
+// ─── Push to Zotero (single item RIS download) ────────
+
+function pushToZotero(idx) {
+    const r = getAllResults().find(x => x._idx === idx);
+    if (!r) return;
+    fetch('/api/research-export', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({format: 'ris', results: [r]}),
+    })
+    .then(resp => resp.blob().then(blob => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        const safe = (r.title || 'source').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 40);
+        a.download = safe + '.ris';
+        a.click();
+    }));
+}
+
+function addOneToReadingList(idx) {
+    const r = getAllResults().find(x => x._idx === idx);
+    if (!r) return;
+    fetch('/api/reading-list', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(r),
+    })
+    .then(resp => {
+        if (resp.status === 201) {
+            const card = document.querySelector(`[data-idx="${idx}"]`);
+            if (card) card.style.borderLeftColor = 'var(--accent)';
+        }
+    });
 }
 
 // ─── Reading List ──────────────────────────────────────

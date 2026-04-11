@@ -1351,6 +1351,64 @@ a:hover { color: var(--accent-hover); }
     min-width: 200px;
 }
 
+/* Research profiles */
+.research-profiles {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+.profile-btn {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--bg);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.12s;
+    font-family: var(--font);
+}
+.profile-btn:hover { border-color: var(--accent); color: var(--accent); }
+.profile-btn.profile-active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+}
+
+/* Library auth bar */
+.research-auth-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 8px 12px;
+    background: #fef9ef;
+    border: 1px solid #e8dcc8;
+    border-radius: var(--radius);
+    flex-wrap: wrap;
+}
+.auth-link {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--accent);
+    text-decoration: none;
+    transition: all 0.12s;
+}
+.auth-link:hover { background: var(--accent-light); border-color: var(--accent); }
+.auth-link.connected { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+.auth-status {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-left: auto;
+}
+
 /* Two-Eyed Seeing toggle */
 .two-eyed-toggle {
     display: flex;
