@@ -2,28 +2,103 @@
 {% block title %}Web Search: {{ query }} — Iris{% endblock %}
 {% block content %}
 
-<div class="web-page-header">
-    <h2>Web Search: "{{ query }}"</h2>
-    <p class="web-research-desc">Searching Wikimedia Commons, Wikipedia, Smithsonian NMAAHC, and Library of Congress</p>
-    <a href="{{ url_for('library', q=query) }}" class="back-to-library">&larr; Back to library results</a>
-    <form action="{{ url_for('web_search_page') }}" method="get" class="web-search-again">
-        <input type="text" name="q" value="{{ query }}" placeholder="Search the web...">
-        <select name="course" class="course-select">
-            <option value="">Any course</option>
-            <option value="BFS142" {{ 'selected' if course == 'BFS142' }}>BFS142</option>
-            <option value="BFS211" {{ 'selected' if course == 'BFS211' }}>BFS211</option>
-            <option value="BFS218" {{ 'selected' if course == 'BFS218' }}>BFS218</option>
-            <option value="BFS220" {{ 'selected' if course == 'BFS220' }}>BFS220</option>
-            <option value="SOC122" {{ 'selected' if course == 'SOC122' }}>SOC122</option>
-        </select>
-        <button type="submit" class="btn btn-primary">Search</button>
+<div class="lib-search-header">
+    <a href="{{ url_for('library', q=query) }}" class="back-to-library">&larr; Back to local library</a>
+    <h2 class="lib-search-title">Iris Research Portal</h2>
+    <form action="{{ url_for('web_search_page') }}" method="get" class="lib-search-bar">
+        <div class="lib-search-row">
+            <input type="text" name="q" value="{{ query }}" placeholder="Search images, media, and articles...">
+            <select name="course" class="lib-course-select">
+                <option value="">All courses</option>
+                <option value="BFS142" {{ 'selected' if course == 'BFS142' }}>BFS142 — Race, Resistance and the Black Athlete</option>
+                <option value="BFS211" {{ 'selected' if course == 'BFS211' }}>BFS211 — Black Music and Social Liberation</option>
+                <option value="BFS218" {{ 'selected' if course == 'BFS218' }}>BFS218 — Techno-Racism</option>
+                <option value="BFS220" {{ 'selected' if course == 'BFS220' }}>BFS220 — Black Perspectives in Popular Culture</option>
+                <option value="SOC122" {{ 'selected' if course == 'SOC122' }}>SOC122 — Intro to Social Sciences</option>
+            </select>
+            <button type="submit" class="btn btn-primary">Search</button>
+        </div>
+        <details class="lib-advanced">
+            <summary>Advanced Search Options</summary>
+            <div class="lib-advanced-grid">
+                <div class="lib-adv-field">
+                    <label>Date range</label>
+                    <div class="lib-date-range">
+                        <input type="text" name="year_from" placeholder="From (e.g. 1950)" value="{{ request.args.get('year_from', '') }}">
+                        <span>to</span>
+                        <input type="text" name="year_to" placeholder="To (e.g. 2026)" value="{{ request.args.get('year_to', '') }}">
+                    </div>
+                </div>
+                <div class="lib-adv-field">
+                    <label>Image sources</label>
+                    <div class="lib-check-group">
+                        <label><input type="checkbox" name="src_wikimedia" checked> Wikimedia Commons</label>
+                        <label><input type="checkbox" name="src_wikipedia" checked> Wikipedia</label>
+                        <label><input type="checkbox" name="src_smithsonian" checked> Smithsonian NMAAHC</label>
+                        <label><input type="checkbox" name="src_loc" checked> Library of Congress</label>
+                    </div>
+                </div>
+                <div class="lib-adv-field">
+                    <label>Article databases</label>
+                    <div class="lib-check-group">
+                        <label><input type="checkbox" name="src_semantic" checked> Semantic Scholar</label>
+                        <label><input type="checkbox" name="src_eric" checked> ERIC (Education)</label>
+                    </div>
+                </div>
+                <div class="lib-adv-field">
+                    <label>License</label>
+                    <select name="license" class="lib-course-select">
+                        <option value="">Any license</option>
+                        <option value="public">Public Domain</option>
+                        <option value="cc">Creative Commons</option>
+                        <option value="open">Open Access</option>
+                    </select>
+                </div>
+                <div class="lib-adv-field">
+                    <label>Minimum image dimensions</label>
+                    <select name="min_size" class="lib-course-select">
+                        <option value="200">200px (default)</option>
+                        <option value="400">400px+</option>
+                        <option value="800">800px+ (high quality)</option>
+                        <option value="1200">1200px+ (print quality)</option>
+                    </select>
+                </div>
+            </div>
+        </details>
     </form>
 </div>
 
-<div id="web-results" class="web-page-results">
-    <div class="web-loading" id="web-loading">Searching institutional collections...</div>
+<div class="lib-results-page">
+    <!-- Sidebar -->
+    <aside class="lib-sidebar" id="lib-sidebar">
+        <div class="lib-sidebar-section">
+            <h4>Source Type</h4>
+            <label class="lib-filter"><input type="checkbox" class="type-filter" value="image" checked onchange="filterResults()"> Images</label>
+            <label class="lib-filter"><input type="checkbox" class="type-filter" value="article" checked onchange="filterResults()"> Articles</label>
+        </div>
+        <div class="lib-sidebar-section" id="source-facets"></div>
+        <div class="lib-sidebar-section">
+            <h4>Actions</h4>
+            <button type="button" class="btn btn-secondary btn-sm lib-action-btn" onclick="toggleSelectAll()">Select All</button>
+            <button type="button" class="btn btn-secondary btn-sm lib-action-btn" onclick="deselectAll()">Deselect All</button>
+            <button type="button" class="btn btn-primary btn-sm lib-action-btn" id="assess-btn" onclick="assessSelected()" disabled>Brain Assess (0)</button>
+            <button type="button" class="btn btn-primary btn-sm lib-action-btn" id="import-btn" onclick="approveSelected()" disabled>Import Images (0)</button>
+            <button type="button" class="btn btn-secondary btn-sm lib-action-btn" id="cite-btn" onclick="exportCitations()" disabled>Export Citations (0)</button>
+        </div>
+    </aside>
+
+    <!-- Main results -->
+    <main class="lib-main">
+        <div id="lib-loading" class="lib-loading">
+            <div class="lib-loading-text">Searching 6 institutional collections...</div>
+            <div class="lib-loading-sources">Wikimedia Commons, Wikipedia, Smithsonian NMAAHC, Library of Congress, Semantic Scholar, ERIC</div>
+        </div>
+        <div id="lib-results-header" class="lib-results-header" style="display:none"></div>
+        <div id="lib-results-list" class="lib-results-list"></div>
+    </main>
 </div>
 
+<!-- Brain panel -->
 <div id="brain-panel" class="brain-panel" style="display:none">
     <div class="brain-header">
         <h3 class="section-heading">Seneca Brain Assessment</h3>
@@ -36,132 +111,140 @@
 (function() {
     const query = {{ query|tojson }};
     const course = {{ (course or '')|tojson }};
-    const resultsDiv = document.getElementById('web-results');
-    const loading = document.getElementById('web-loading');
-    let searchResults = [];
+    let allResults = []; // unified: images + articles
 
     fetch('/api/web-search?q=' + encodeURIComponent(query))
         .then(r => r.json())
         .then(data => {
-            loading.style.display = 'none';
-            if (!data.results || !data.results.length) {
-                resultsDiv.innerHTML = '<div class="web-no-results"><p>No results found. Try different terms.</p></div>';
+            document.getElementById('lib-loading').style.display = 'none';
+
+            const images = (data.results || []).map((r, i) => ({...r, _type: 'image', _index: i}));
+            const articles = (data.articles || []).map((a, i) => ({...a, _type: 'article', _index: images.length + i}));
+            allResults = [...images, ...articles];
+
+            if (!allResults.length) {
+                document.getElementById('lib-results-list').innerHTML = '<div class="lib-empty">No results found for "' + query + '". Try broader terms.</div>';
                 return;
             }
-            searchResults = data.results;
-            const articles = data.articles || [];
 
-            const totalCount = data.results.length + articles.length;
-            let html = '<p class="web-sources">' + totalCount + ' results (' + data.results.length + ' images, ' + articles.length + ' articles) from ' + (data.sources || []).join(', ') + '</p>';
+            // Header
+            const header = document.getElementById('lib-results-header');
+            header.style.display = 'flex';
+            header.innerHTML = `<span class="lib-count">${allResults.length} results</span>
+                <span class="lib-breakdown">${images.length} images, ${articles.length} articles</span>
+                <span class="lib-sources-tag">Sources: ${(data.sources || []).join(', ')}</span>`;
 
-            // Action bar: select controls + brain button
-            html += '<div class="web-action-bar">';
-            html += '<div class="web-select-controls">';
-            html += '<button type="button" class="btn btn-secondary btn-sm" onclick="toggleSelectAll()">Select All</button>';
-            html += '<button type="button" class="btn btn-secondary btn-sm" onclick="deselectAll()">Deselect All</button>';
-            html += '<span class="select-count" id="select-count">0 selected</span>';
-            html += '</div>';
-            html += '<div class="web-action-buttons">';
-            html += '<button type="button" class="btn btn-secondary btn-sm" id="assess-btn" onclick="assessSelected()" disabled>Ask Seneca Brain (0)</button>';
-            html += '<button type="button" class="btn btn-primary btn-sm" id="approve-btn" onclick="approveSelected()" disabled>Approve and Import (0)</button>';
-            html += '</div>';
-            html += '</div>';
-
-            html += '<div class="web-results-grid">';
-            data.results.forEach((r, i) => {
-                html += `
-                    <div class="web-result-card" id="web-result-${i}">
-                        <label class="web-select">
-                            <input type="checkbox" class="web-checkbox" data-index="${i}" onchange="updateCounts()">
-                        </label>
-                        <img src="${r.thumb_url}" alt="${r.title}" class="web-thumb" loading="lazy" onerror="this.style.display='none'">
-                        <div class="web-result-info">
-                            <div class="web-result-title">${r.title}</div>
-                            <div class="web-result-meta">${r.creator || 'Unknown'} | ${r.source} | ${r.license}${r.width && r.height ? ' | ' + r.width + '×' + r.height : ''}</div>
-                            ${r.description ? '<div class="web-result-desc">' + r.description.substring(0, 200) + (r.description.length > 200 ? '...' : '') + '</div>' : ''}
-                            <div class="web-result-actions">
-                                <a href="${r.source_page}" target="_blank" class="btn btn-secondary btn-sm">View Source</a>
-                            </div>
-                        </div>
-                    </div>`;
+            // Source facets
+            const sourceCounts = {};
+            allResults.forEach(r => { sourceCounts[r.source] = (sourceCounts[r.source] || 0) + 1; });
+            let facetHtml = '<h4>Source</h4>';
+            Object.entries(sourceCounts).sort((a,b) => b[1]-a[1]).forEach(([src, cnt]) => {
+                facetHtml += `<label class="lib-filter"><input type="checkbox" class="source-filter" value="${src}" checked onchange="filterResults()"> ${src} <span class="facet-count">${cnt}</span></label>`;
             });
-            html += '</div>';
+            document.getElementById('source-facets').innerHTML = facetHtml;
 
-            // Articles section
-            if (articles.length) {
-                html += '<div class="articles-section">';
-                html += '<h3 class="section-heading">Academic Articles</h3>';
-                html += '<p class="web-research-desc">From Semantic Scholar and ERIC. Select articles to assess with Seneca Brain or export citations.</p>';
-                html += '<div class="articles-list">';
-                articles.forEach((a, i) => {
-                    html += `
-                        <div class="article-card" id="article-${i}">
-                            <label class="web-select">
-                                <input type="checkbox" class="article-checkbox" data-index="${i}" onchange="updateCounts()">
-                            </label>
-                            <div class="article-info">
-                                <div class="article-title">
-                                    ${a.url ? '<a href="' + a.url + '" target="_blank">' + a.title + '</a>' : a.title}
-                                </div>
-                                <div class="article-meta">
-                                    ${a.authors} (${a.year})${a.journal ? ' | <em>' + a.journal + '</em>' : ''}${a.citations ? ' | ' + a.citations + ' citations' : ''}
-                                    <span class="article-source-badge">${a.source}</span>
-                                </div>
-                                ${a.abstract ? '<div class="article-abstract">' + a.abstract + (a.abstract.length >= 295 ? '...' : '') + '</div>' : ''}
-                                <div class="article-actions">
-                                    <details class="article-citation-details">
-                                        <summary>APA Citation</summary>
-                                        <code class="apa-citation article-apa">${a.apa_citation}</code>
-                                    </details>
-                                    ${a.doi ? '<a href="https://doi.org/' + a.doi + '" target="_blank" class="btn btn-secondary btn-sm">DOI</a>' : ''}
-                                    ${a.url ? '<a href="' + a.url + '" target="_blank" class="btn btn-secondary btn-sm">View</a>' : ''}
-                                </div>
-                            </div>
-                        </div>`;
-                });
-                html += '</div>';
-                html += '<div class="article-export-bar">';
-                html += '<button type="button" class="btn btn-secondary btn-sm" onclick="exportArticleCitations()">Export Selected Citations (.txt)</button>';
-                html += '</div>';
-                html += '</div>';
-            }
-
-            resultsDiv.innerHTML = html;
+            renderResults(allResults);
         })
         .catch(err => {
-            loading.style.display = 'none';
-            resultsDiv.innerHTML = '<div class="web-no-results"><p>Search failed: ' + err.message + '</p></div>';
+            document.getElementById('lib-loading').style.display = 'none';
+            document.getElementById('lib-results-list').innerHTML = '<div class="lib-empty">Search failed: ' + err.message + '</div>';
         });
 
-    // Selection management
-    window.getSelectedIndices = function() {
-        return [...document.querySelectorAll('.web-checkbox:checked')].map(cb => parseInt(cb.dataset.index));
+    function renderResults(items) {
+        const list = document.getElementById('lib-results-list');
+        let html = '';
+        items.forEach((r, displayIndex) => {
+            if (r._type === 'image') {
+                html += `
+                <div class="lib-result" data-type="image" data-source="${r.source}" data-index="${r._index}">
+                    <label class="lib-select"><input type="checkbox" class="result-cb" data-index="${r._index}" data-type="image" onchange="updateActionCounts()"></label>
+                    <div class="lib-result-thumb">
+                        <img src="${r.thumb_url}" alt="${r.title}" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2280%22 height=%2280%22><rect fill=%22%23e8f0eb%22 width=%2280%22 height=%2280%22/></svg>'">
+                        <span class="lib-type-tag lib-type-image">Image</span>
+                    </div>
+                    <div class="lib-result-body">
+                        <div class="lib-result-title">${r.title}</div>
+                        <div class="lib-result-meta">${r.creator || 'Unknown creator'}${r.width && r.height ? ' | ' + r.width + ' × ' + r.height : ''}</div>
+                        <div class="lib-result-source">${r.source} | ${r.license}</div>
+                        ${r.description ? '<div class="lib-result-abstract">' + r.description.substring(0, 180) + (r.description.length > 180 ? '...' : '') + '</div>' : ''}
+                        <div class="lib-result-actions">
+                            <a href="${r.source_page}" target="_blank" class="lib-link">View source</a>
+                            <a href="/import-url?url=${encodeURIComponent(r.full_url)}" class="lib-link lib-link-primary">Import to Iris</a>
+                        </div>
+                    </div>
+                </div>`;
+            } else {
+                html += `
+                <div class="lib-result" data-type="article" data-source="${r.source}" data-index="${r._index}">
+                    <label class="lib-select"><input type="checkbox" class="result-cb" data-index="${r._index}" data-type="article" onchange="updateActionCounts()"></label>
+                    <div class="lib-result-icon">
+                        <span class="lib-type-tag lib-type-article">Article</span>
+                    </div>
+                    <div class="lib-result-body">
+                        <div class="lib-result-title">${r.url ? '<a href="' + r.url + '" target="_blank">' + r.title + '</a>' : r.title}</div>
+                        <div class="lib-result-authors">${r.authors || 'Unknown'} (${r.year || 'n.d.'})</div>
+                        <div class="lib-result-source">${r.journal ? '<em>' + r.journal + '</em> | ' : ''}${r.source}${r.citations ? ' | Cited ' + r.citations + ' times' : ''}</div>
+                        ${r.abstract ? '<div class="lib-result-abstract">' + r.abstract.substring(0, 250) + (r.abstract.length > 250 ? '...' : '') + '</div>' : ''}
+                        <div class="lib-result-citation">
+                            <details>
+                                <summary>APA 7th Citation</summary>
+                                <code class="apa-citation lib-apa">${r.apa_citation}</code>
+                            </details>
+                        </div>
+                        <div class="lib-result-actions">
+                            ${r.url ? '<a href="' + r.url + '" target="_blank" class="lib-link">Full text</a>' : ''}
+                            ${r.doi ? '<a href="https://doi.org/' + r.doi + '" target="_blank" class="lib-link">DOI</a>' : ''}
+                        </div>
+                    </div>
+                </div>`;
+            }
+        });
+        list.innerHTML = html;
+    }
+
+    // Filtering
+    window.filterResults = function() {
+        const typeFilters = [...document.querySelectorAll('.type-filter:checked')].map(cb => cb.value);
+        const sourceFilters = [...document.querySelectorAll('.source-filter:checked')].map(cb => cb.value);
+        const filtered = allResults.filter(r =>
+            typeFilters.includes(r._type) && sourceFilters.includes(r.source)
+        );
+        renderResults(filtered);
+        // Update header count
+        const header = document.getElementById('lib-results-header');
+        const imgs = filtered.filter(r => r._type === 'image').length;
+        const arts = filtered.filter(r => r._type === 'article').length;
+        header.querySelector('.lib-count').textContent = filtered.length + ' results';
+        header.querySelector('.lib-breakdown').textContent = imgs + ' images, ' + arts + ' articles';
     };
 
-    window.updateCounts = function() {
-        const count = document.querySelectorAll('.web-checkbox:checked').length;
-        document.getElementById('select-count').textContent = count + ' selected';
-        document.getElementById('assess-btn').disabled = count === 0;
-        document.getElementById('assess-btn').textContent = 'Ask Seneca Brain (' + count + ')';
-        document.getElementById('approve-btn').disabled = count === 0;
-        document.getElementById('approve-btn').textContent = 'Approve and Import (' + count + ')';
+    // Selection
+    window.updateActionCounts = function() {
+        const checked = document.querySelectorAll('.result-cb:checked');
+        const imgCount = [...checked].filter(cb => cb.dataset.type === 'image').length;
+        const artCount = [...checked].filter(cb => cb.dataset.type === 'article').length;
+        const total = checked.length;
+        document.getElementById('assess-btn').disabled = total === 0;
+        document.getElementById('assess-btn').textContent = 'Brain Assess (' + total + ')';
+        document.getElementById('import-btn').disabled = imgCount === 0;
+        document.getElementById('import-btn').textContent = 'Import Images (' + imgCount + ')';
+        document.getElementById('cite-btn').disabled = total === 0;
+        document.getElementById('cite-btn').textContent = 'Export Citations (' + total + ')';
     };
 
     window.toggleSelectAll = function() {
-        document.querySelectorAll('.web-checkbox').forEach(cb => cb.checked = true);
-        updateCounts();
+        document.querySelectorAll('.result-cb').forEach(cb => cb.checked = true);
+        updateActionCounts();
     };
-
     window.deselectAll = function() {
-        document.querySelectorAll('.web-checkbox').forEach(cb => cb.checked = false);
-        updateCounts();
+        document.querySelectorAll('.result-cb').forEach(cb => cb.checked = false);
+        updateActionCounts();
     };
 
-    // Brain assessment on selected items only
+    // Brain assessment
     window.assessSelected = function() {
-        const indices = getSelectedIndices();
-        if (!indices.length) return;
-
+        const checked = [...document.querySelectorAll('.result-cb:checked')];
+        if (!checked.length) return;
         const btn = document.getElementById('assess-btn');
         btn.disabled = true;
         btn.textContent = 'Asking Seneca Brain...';
@@ -169,114 +252,92 @@
         const panel = document.getElementById('brain-panel');
         const assessDiv = document.getElementById('brain-assessment');
         panel.style.display = 'block';
-        assessDiv.innerHTML = '<p class="web-loading">Querying Seneca Brain for curriculum relevance...</p>';
+        assessDiv.innerHTML = '<p class="lib-loading-text">Querying Seneca Brain for curriculum relevance...</p>';
+        panel.scrollIntoView({behavior: 'smooth'});
 
-        const selectedResults = indices.map(i => ({
-            title: searchResults[i].title,
-            description: (searchResults[i].description || '').substring(0, 150),
-            source: searchResults[i].source
-        }));
+        const items = checked.map(cb => {
+            const r = allResults[parseInt(cb.dataset.index)];
+            return {title: r.title, description: (r.description || r.abstract || '').substring(0, 150), source: r.source};
+        });
 
         fetch('/api/brain-assess', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ query: query, course: course, results: selectedResults })
+            body: JSON.stringify({query, course, results: items})
         })
         .then(r => r.json())
         .then(data => {
             btn.disabled = false;
-            btn.textContent = 'Reassess (' + indices.length + ')';
+            btn.textContent = 'Reassess (' + checked.length + ')';
             if (data.assessment) {
                 const formatted = data.assessment
                     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                     .replace(/\*   /g, '<br>&nbsp;&nbsp;')
                     .replace(/\n\n/g, '<br><br>')
                     .replace(/\n/g, '<br>');
-                let html = '<div class="brain-response">' + formatted + '</div>';
-                if (data.course) {
-                    html += '<p class="brain-course">Assessed for: <strong>' + data.course + '</strong></p>';
-                }
-                assessDiv.innerHTML = html;
+                assessDiv.innerHTML = '<div class="brain-response">' + formatted + '</div>';
+                if (data.course) assessDiv.innerHTML += '<p class="brain-course">Assessed for: <strong>' + data.course + '</strong></p>';
             } else {
                 assessDiv.innerHTML = '<p>Brain assessment unavailable.</p>';
             }
         })
         .catch(err => {
             btn.disabled = false;
-            btn.textContent = 'Ask Seneca Brain (' + indices.length + ')';
-            assessDiv.innerHTML = '<p>Brain query failed: ' + err.message + '</p>';
+            btn.textContent = 'Brain Assess (' + checked.length + ')';
+            assessDiv.innerHTML = '<p>Failed: ' + err.message + '</p>';
         });
     };
 
-    // Approve and import selected items
+    // Import selected images
     window.approveSelected = function() {
-        const indices = getSelectedIndices();
-        if (!indices.length) return;
-
-        const btn = document.getElementById('approve-btn');
+        const checked = [...document.querySelectorAll('.result-cb:checked')].filter(cb => cb.dataset.type === 'image');
+        if (!checked.length) return;
+        const btn = document.getElementById('import-btn');
         btn.disabled = true;
-        btn.textContent = 'Importing...';
+        let imported = 0, failed = 0;
 
-        let imported = 0;
-        let failed = 0;
-        const total = indices.length;
-
-        // Import sequentially to avoid overwhelming the server
         function importNext(i) {
-            if (i >= indices.length) {
-                btn.textContent = imported + ' imported' + (failed > 0 ? ', ' + failed + ' failed' : '');
-                setTimeout(() => {
-                    btn.disabled = false;
-                    updateCounts();
-                }, 2000);
+            if (i >= checked.length) {
+                btn.textContent = imported + ' imported' + (failed ? ', ' + failed + ' failed' : '');
+                setTimeout(() => { btn.disabled = false; updateActionCounts(); }, 2000);
                 return;
             }
-            const r = searchResults[indices[i]];
-            fetch('/import-url', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: 'url=' + encodeURIComponent(r.full_url),
-                redirect: 'follow'
-            })
+            const r = allResults[parseInt(checked[i].dataset.index)];
+            btn.textContent = 'Importing ' + (i+1) + '/' + checked.length + '...';
+            fetch('/import-url', {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: 'url=' + encodeURIComponent(r.full_url), redirect: 'follow'})
             .then(resp => {
                 if (resp.ok || resp.redirected) {
                     imported++;
-                    // Mark the card as imported
-                    const card = document.getElementById('web-result-' + indices[i]);
-                    if (card) {
-                        card.classList.add('imported');
-                        card.querySelector('.web-result-actions').innerHTML += '<span class="imported-badge">Imported</span>';
-                    }
-                } else {
-                    failed++;
-                }
-                btn.textContent = 'Importing ' + (i + 1) + '/' + total + '...';
-                importNext(i + 1);
+                    const card = checked[i].closest('.lib-result');
+                    if (card) card.classList.add('lib-imported');
+                } else failed++;
+                importNext(i+1);
             })
-            .catch(() => { failed++; importNext(i + 1); });
+            .catch(() => { failed++; importNext(i+1); });
         }
         importNext(0);
     };
-    // Export selected article citations
-    window.exportArticleCitations = function() {
-        const checked = document.querySelectorAll('.article-checkbox:checked');
-        if (!checked.length) { alert('Select articles first'); return; }
-        const articles = {{ (course or '')|tojson }};  // just need to access searchResults
+
+    // Export citations
+    window.exportCitations = function() {
+        const checked = [...document.querySelectorAll('.result-cb:checked')];
+        if (!checked.length) return;
         const citations = [];
         checked.forEach(cb => {
-            const card = cb.closest('.article-card');
-            const apa = card.querySelector('.article-apa');
-            if (apa) citations.push(apa.textContent.trim());
+            const r = allResults[parseInt(cb.dataset.index)];
+            if (r._type === 'article' && r.apa_citation) {
+                citations.push(r.apa_citation);
+            } else if (r._type === 'image') {
+                const creator = r.creator || 'Unknown';
+                citations.push(creator + '. (' + (r.source || 'n.d.') + '). ' + r.title + ' [Image]. ' + (r.source_page || ''));
+            }
         });
-        citations.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
-        const text = 'References\n\n' + citations.join('\n\n');
-        const blob = new Blob([text], {type: 'text/plain'});
-        const url = URL.createObjectURL(blob);
+        citations.sort((a,b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+        const blob = new Blob(['References\n\n' + citations.join('\n\n')], {type: 'text/plain'});
         const a = document.createElement('a');
-        a.href = url;
-        a.download = 'iris_article_citations_apa7.txt';
+        a.href = URL.createObjectURL(blob);
+        a.download = 'iris_citations_apa7.txt';
         a.click();
-        URL.revokeObjectURL(url);
     };
 })();
 </script>
