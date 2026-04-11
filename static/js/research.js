@@ -11,11 +11,11 @@ let currentSort = 'quality';
 // External search URL generators
 const EXTERNAL_URLS = {
     // Institutional (York gives access to ProQuest, EBSCO, SAGE, Wiley, Springer, T&F, Oxford, Cambridge)
-    york_lib: q => `https://yorku.primo.exlibrisgroup.com/discovery/search?query=any,contains,${encodeURIComponent(q)}&tab=Everything&search_scope=MyInst_and_CI&vid=01OCUL_YOR:YOR_DEFAULT`,
+    york_lib: q => `https://primo.exlibrisgroup.com/discovery/search?query=any,contains,${encodeURIComponent(q)}&tab=Everything&search_scope=MyInst_and_CI&vid=01OCUL_YOR:YOR_DEFAULT`,
     jstor: q => `https://www.jstor.org/action/doBasicSearch?Query=${encodeURIComponent(q)}`,
     york_proquest: q => `https://www.proquest.com/advanced?query=${encodeURIComponent(q)}`,
     york_ebsco: q => `https://search.ebscohost.com/login.aspx?direct=true&bquery=${encodeURIComponent(q)}`,
-    seneca_lib: q => `https://senecapolytechnic.primo.exlibrisgroup.com/discovery/search?query=any,contains,${encodeURIComponent(q)}&tab=Everything&search_scope=MyInst_and_CI&vid=01OCUL_SEN:SEN_DEFAULT`,
+    seneca_lib: q => `https://primo.exlibrisgroup.com/discovery/search?query=any,contains,${encodeURIComponent(q)}&tab=Everything&search_scope=MyInst_and_CI&vid=01SENC_INST:01SENC_NDE`,
     // General reference
     gscholar: q => `https://scholar.google.com/scholar?q=${encodeURIComponent(q)}`,
     britannica: q => `https://www.britannica.com/search?query=${encodeURIComponent(q)}`,
@@ -23,17 +23,17 @@ const EXTERNAL_URLS = {
     blackpast: q => `https://www.blackpast.org/?s=${encodeURIComponent(q)}`,
     schomburg: q => `https://digitalcollections.nypl.org/search/index?utf8=%E2%9C%93&keywords=${encodeURIComponent(q)}#/?scroll=24`,
     aodl: q => `https://www.aodl.org/search?q=${encodeURIComponent(q)}`,
-    bec: q => `https://www.bac-lac.gc.ca/eng/search/Pages/record-search.aspx?DataSource=Archives&q=${encodeURIComponent(q)}`,
+    bec: q => `https://www.bac-lac.gc.ca/eng/collectionsearch/Pages/collectionsearch.aspx?q=${encodeURIComponent(q)}`,
     project_muse: q => `https://muse.jhu.edu/search?action=search&query=${encodeURIComponent(q)}`,
     // Indigenous
-    iportal: q => `https://iportal.usask.ca/action/search/list?q=${encodeURIComponent(q)}`,
+    iportal: q => `https://iportal.usask.ca/search?q=${encodeURIComponent(q)}`,
     fnigc: q => `https://fnigc.ca/?s=${encodeURIComponent(q)}`,
     isumatv: q => `https://www.isuma.tv/search/node/${encodeURIComponent(q)}`,
-    ourdigitalworld: q => `https://search.ourdigitalworld.org/search?q=${encodeURIComponent(q)}`,
+    ourdigitalworld: q => `http://search.ourontario.ca/results?q=${encodeURIComponent(q)}`,
     // Canadian government
-    statscan: q => `https://www.statcan.gc.ca/en/search/search-results?q=${encodeURIComponent(q)}`,
+    statscan: q => `https://www.statcan.gc.ca/search/results/site-search?q=${encodeURIComponent(q)}`,
     canadiana: q => `https://www.canadiana.ca/search?q=${encodeURIComponent(q)}`,
-    archives_ontario: q => `https://ao.minisisinc.com/scripts/mwimain.dll/144/DESCRIPTION_WEB/WEB_DESC_SRCH?SESSIONSEARCH&exp=keyword+ct+${encodeURIComponent(q)}`,
+    archives_ontario: q => `https://www.archives.gov.on.ca/en/access/search.aspx?q=${encodeURIComponent(q)}`,
 };
 
 // Research profiles
