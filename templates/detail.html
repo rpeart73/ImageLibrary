@@ -15,6 +15,39 @@
             {% endif %}
         </div>
 
+        {% if not image.description %}
+        <div id="auto-process-banner" class="detail-section" style="background: var(--accent-light, #f0f4ff); padding: 12px 16px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between;">
+            <span id="process-status" style="color: var(--accent, #2563eb); font-weight: 600; font-size: 14px;">No metadata yet</span>
+            <button id="process-btn" class="btn btn-primary" onclick="autoProcess({{ image.id }})" style="font-size: 13px; padding: 4px 12px;">Search</button>
+        </div>
+        <script>
+        function autoProcess(imageId) {
+            var btn = document.getElementById('process-btn');
+            var status = document.getElementById('process-status');
+            btn.disabled = true;
+            btn.textContent = 'Searching\u2026';
+            status.textContent = 'Searching Wikipedia\u2026';
+            fetch('/api/image/' + imageId + '/auto-process', { method: 'POST' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.ok) {
+                        status.textContent = 'Found: ' + data.title + ' \u2014 reloading\u2026';
+                        setTimeout(function() { location.reload(); }, 600);
+                    } else {
+                        status.textContent = 'No automatic results. Use Edit for manual entry.';
+                        btn.textContent = 'Retry';
+                        btn.disabled = false;
+                    }
+                })
+                .catch(function() {
+                    status.textContent = 'Search failed.';
+                    btn.textContent = 'Retry';
+                    btn.disabled = false;
+                });
+        }
+        </script>
+        {% endif %}
+
         {% if image.description %}
         <div class="detail-section">
             <h3>Description</h3>
@@ -34,7 +67,7 @@
             <h3>Tags</h3>
             <div class="detail-tags">
                 {% for tag in tags %}
-                <a href="{{ url_for('index', tag=tag.name) }}" class="tag">{{ tag.name }}</a>
+                <a href="{{ url_for('browse', tag=tag.name) }}" class="tag">{{ tag.name }}</a>
                 {% endfor %}
             </div>
         </div>
@@ -109,7 +142,7 @@
                   onsubmit="return confirm('Delete this image?');">
                 <button type="submit" class="btn btn-danger">Delete</button>
             </form>
-            <a href="{{ url_for('index') }}" class="btn btn-secondary">Back</a>
+            <a href="{{ url_for('browse') }}" class="btn btn-secondary">Back</a>
         </div>
     </div>
 </div>

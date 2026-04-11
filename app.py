@@ -11,7 +11,8 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify, s
 from werkzeug.utils import secure_filename
 from PIL import Image as PILImage
 
-from database import get_db, init_db, generate_apa_citation, DB_PATH
+from database import get_db, init_db, generate_apa_citation, compute_file_hash, DB_PATH
+from metadata_search import search_metadata, classify_from_page
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -28,8 +29,434 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXT
 
 
+@app.route('/api/autocomplete')
+def autocomplete():
+    """Return search suggestions as JSON for autocomplete."""
+    q = request.args.get('q', '').strip()
+    if len(q) < 2:
+        return jsonify([])
+    db = get_db()
+    pattern = f'%{q}%'
+    suggestions = []
+    # Titles
+    for row in db.execute("SELECT title FROM images WHERE title LIKE ? LIMIT 5", (pattern,)).fetchall():
+        suggestions.append({'text': row['title'], 'type': 'title'})
+    # Creators
+    for row in db.execute("SELECT DISTINCT creator FROM images WHERE creator LIKE ? AND creator IS NOT NULL LIMIT 3", (pattern,)).fetchall():
+        suggestions.append({'text': row['creator'], 'type': 'creator'})
+    # Media titles
+    for row in db.execute("SELECT title FROM media WHERE title LIKE ? OR creator LIKE ? LIMIT 3", (pattern, pattern)).fetchall():
+        suggestions.append({'text': row['title'], 'type': 'media'})
+    # Tags
+    for row in db.execute("SELECT name FROM tags WHERE name LIKE ? LIMIT 5", (pattern,)).fetchall():
+        suggestions.append({'text': row['name'], 'type': 'tag'})
+    # Themes
+    for row in db.execute("SELECT name FROM themes WHERE name LIKE ? LIMIT 3", (pattern,)).fetchall():
+        suggestions.append({'text': row['name'], 'type': 'theme'})
+    db.close()
+    # Deduplicate by text
+    seen = set()
+    unique = []
+    for s in suggestions:
+        if s['text'] not in seen:
+            seen.add(s['text'])
+            unique.append(s)
+    return jsonify(unique[:10])
+
+
+@app.route('/api/web-search')
+def web_search():
+    """Search Wikimedia Commons and Wikipedia for images related to a query."""
+    q = request.args.get('q', '').strip()
+    if not q or len(q) < 2:
+        return jsonify({'results': [], 'source': 'none'})
+
+    results = []
+
+    # 1. Wikimedia Commons image search
+    try:
+        resp = requests.get('https://commons.wikimedia.org/w/api.php', params={
+            'action': 'query',
+            'generator': 'search',
+            'gsrsearch': f'{q} Black studies OR African American OR civil rights',
+            'gsrnamespace': 6,  # File namespace
+            'gsrlimit': 12,
+            'prop': 'imageinfo',
+            'iiprop': 'url|extmetadata|size|mime',
+            'iiurlwidth': 300,
+            'format': 'json',
+        }, headers={'User-Agent': 'IrisImageLibrary/1.0 (educational; Black Studies image catalog)'},
+        timeout=10)
+
+        if resp.status_code == 200:
+            data = resp.json()
+            pages = data.get('query', {}).get('pages', {})
+            for page_id, page in pages.items():
+                info = page.get('imageinfo', [{}])[0]
+                meta = info.get('extmetadata', {})
+                title = page.get('title', '').replace('File:', '')
+                desc = meta.get('ImageDescription', {}).get('value', '')
+                # Strip HTML from description
+                desc = re.sub(r'<[^>]+>', '', desc)[:300]
+                artist = meta.get('Artist', {}).get('value', '')
+                artist = re.sub(r'<[^>]+>', '', artist)
+                license_name = meta.get('LicenseShortName', {}).get('value', 'Unknown')
+                thumb_url = info.get('thumburl', '')
+                full_url = info.get('url', '')
+                width = info.get('width', 0)
+                height = info.get('height', 0)
+
+                if width >= 200 and height >= 200 and info.get('mime', '').startswith('image/'):
+                    results.append({
+                        'title': title,
+                        'description': desc,
+                        'creator': artist,
+                        'license': license_name,
+                        'thumb_url': thumb_url,
+                        'full_url': full_url,
+                        'source': 'Wikimedia Commons',
+                        'source_page': f"https://commons.wikimedia.org/wiki/File:{requests.utils.quote(page.get('title', '').replace('File:', ''))}",
+                        'width': width,
+                        'height': height,
+                    })
+    except Exception:
+        pass
+
+    # 2. Wikipedia article images
+    try:
+        resp = requests.get('https://en.wikipedia.org/w/api.php', params={
+            'action': 'query',
+            'list': 'search',
+            'srsearch': q,
+            'format': 'json',
+            'srlimit': 3,
+        }, headers={'User-Agent': 'IrisImageLibrary/1.0 (educational)'},
+        timeout=5)
+
+        if resp.status_code == 200:
+            articles = resp.json().get('query', {}).get('search', [])
+            for article in articles:
+                article_title = article['title']
+                # Get the main image for this article
+                img_resp = requests.get('https://en.wikipedia.org/w/api.php', params={
+                    'action': 'query',
+                    'titles': article_title,
+                    'prop': 'pageimages|extracts',
+                    'piprop': 'original|thumbnail',
+                    'pithumbsize': 300,
+                    'exintro': True,
+                    'explaintext': True,
+                    'exsentences': 2,
+                    'format': 'json',
+                }, headers={'User-Agent': 'IrisImageLibrary/1.0 (educational)'},
+                timeout=5)
+
+                if img_resp.status_code == 200:
+                    pages = img_resp.json().get('query', {}).get('pages', {})
+                    for pid, pg in pages.items():
+                        original = pg.get('original', {})
+                        thumb = pg.get('thumbnail', {})
+                        if original.get('source'):
+                            results.append({
+                                'title': article_title,
+                                'description': pg.get('extract', '')[:300],
+                                'creator': 'Wikipedia',
+                                'license': 'Varies',
+                                'thumb_url': thumb.get('source', original['source']),
+                                'full_url': original['source'],
+                                'source': 'Wikipedia',
+                                'source_page': f"https://en.wikipedia.org/wiki/{requests.utils.quote(article_title)}",
+                                'width': original.get('width', 0),
+                                'height': original.get('height', 0),
+                            })
+    except Exception:
+        pass
+
+    # 3. Smithsonian National Museum of African American History and Culture
+    try:
+        resp = requests.get('https://api.si.edu/openaccess/api/v1.0/search', params={
+            'q': f'{q} african american',
+            'rows': 8,
+            'online_media_type': 'Images',
+        }, timeout=10)
+
+        if resp.status_code == 200:
+            data = resp.json()
+            rows = data.get('response', {}).get('rows', [])
+            for row in rows:
+                content = row.get('content', {})
+                desc_data = content.get('descriptiveNonRepeating', {})
+                freetext = content.get('freetext', {})
+
+                title = desc_data.get('title', {}).get('content', '')
+                online_media = desc_data.get('online_media', {}).get('media', [])
+                thumb = ''
+                full = ''
+                for m in online_media:
+                    if m.get('type', '').startswith('Images'):
+                        thumb = m.get('thumbnail', '')
+                        full = m.get('content', thumb)
+                        break
+
+                notes = freetext.get('notes', [])
+                desc = ''
+                for n in notes:
+                    if isinstance(n, dict):
+                        desc = n.get('content', '')[:300]
+                        break
+
+                if title and (thumb or full):
+                    results.append({
+                        'title': title,
+                        'description': desc,
+                        'creator': 'Smithsonian NMAAHC',
+                        'license': 'Open Access',
+                        'thumb_url': thumb or full,
+                        'full_url': full or thumb,
+                        'source': 'Smithsonian NMAAHC',
+                        'source_page': desc_data.get('record_link', ''),
+                        'width': 0,
+                        'height': 0,
+                    })
+    except Exception:
+        pass
+
+    # 4. Library of Congress (Black history, civil rights photography)
+    try:
+        resp = requests.get('https://www.loc.gov/search/', params={
+            'q': q,
+            'fa': 'subject:african americans',
+            'fo': 'json',
+            'c': 8,
+            'at': 'results',
+        }, headers={'User-Agent': 'IrisImageLibrary/1.0 (educational)'},
+        timeout=10)
+
+        if resp.status_code == 200:
+            data = resp.json()
+            for item in data.get('results', []):
+                thumb = ''
+                if item.get('image_url'):
+                    thumbs = item['image_url']
+                    thumb = thumbs[0] if isinstance(thumbs, list) else thumbs
+                title = item.get('title', '')
+                desc = item.get('description', [''])[0] if isinstance(item.get('description'), list) else item.get('description', '')
+
+                if title and thumb:
+                    results.append({
+                        'title': title,
+                        'description': (desc or '')[:300],
+                        'creator': 'Library of Congress',
+                        'license': 'Public Domain',
+                        'thumb_url': thumb,
+                        'full_url': thumb.replace('/thumb/', '/full/') if '/thumb/' in thumb else thumb,
+                        'source': 'Library of Congress',
+                        'source_page': item.get('url', ''),
+                        'width': 0,
+                        'height': 0,
+                    })
+    except Exception:
+        pass
+
+    return jsonify({'results': results[:20], 'query': q, 'sources': ['Wikimedia Commons', 'Wikipedia', 'Smithsonian NMAAHC', 'Library of Congress']})
+
+
+def get_suggestions(db, q):
+    """Return 'did you mean' suggestions for zero-result searches."""
+    suggestions = []
+    # Find closest tags
+    for row in db.execute("SELECT name FROM tags ORDER BY name").fetchall():
+        if q.lower() in row['name'].lower() or row['name'].lower() in q.lower():
+            suggestions.append({'text': row['name'], 'type': 'tag'})
+    # Find closest themes
+    for row in db.execute("SELECT name FROM themes ORDER BY name").fetchall():
+        if q.lower() in row['name'].lower():
+            suggestions.append({'text': row['name'], 'type': 'theme'})
+    # Find closest creators
+    for row in db.execute("SELECT DISTINCT creator FROM images WHERE creator IS NOT NULL UNION SELECT DISTINCT creator FROM media WHERE creator IS NOT NULL").fetchall():
+        if row['creator'] and q.lower() in row['creator'].lower():
+            suggestions.append({'text': row['creator'], 'type': 'creator'})
+    return suggestions[:5]
+
+
+def get_facet_counts(db, where_clause='', params=None):
+    """Return theme, course, medium, and tag counts for faceted search."""
+    if params is None:
+        params = []
+    base = f"FROM images i LEFT JOIN themes t ON i.theme_id = t.id WHERE 1=1 {where_clause}"
+
+    theme_counts = db.execute(
+        f"SELECT t.name, COUNT(*) as cnt {base} AND t.name IS NOT NULL GROUP BY t.name ORDER BY cnt DESC",
+        params).fetchall()
+
+    course_counts = db.execute(
+        f"SELECT c.code, c.name, COUNT(*) as cnt FROM image_course_relevance icr "
+        f"JOIN courses c ON icr.course_id = c.id "
+        f"WHERE icr.image_id IN (SELECT i.id {base}) GROUP BY c.code ORDER BY cnt DESC",
+        params).fetchall()
+
+    medium_counts = db.execute(
+        f"SELECT i.medium, COUNT(*) as cnt {base} AND i.medium IS NOT NULL GROUP BY i.medium ORDER BY cnt DESC",
+        params).fetchall()
+
+    tag_counts = db.execute(
+        f"SELECT tg.name, COUNT(*) as cnt FROM image_tags it "
+        f"JOIN tags tg ON it.tag_id = tg.id "
+        f"WHERE it.image_id IN (SELECT i.id {base}) GROUP BY tg.name ORDER BY cnt DESC LIMIT 30",
+        params).fetchall()
+
+    return {
+        'themes': theme_counts,
+        'courses': course_counts,
+        'mediums': medium_counts,
+        'tags': tag_counts,
+    }
+
+
 @app.route('/')
-def index():
+@app.route('/library')
+def library():
+    db = get_db()
+    q = request.args.get('q', '').strip()
+    field = request.args.get('field', 'all')
+    theme_filter = request.args.get('theme', '')
+    course_filter = request.args.get('course', '')
+    tag_filter = request.args.get('tag', '')
+    sort = request.args.get('sort', 'newest')
+    page = request.args.get('page', 1, type=int)
+    per_page = 20
+
+    has_search = bool(q or theme_filter or course_filter or tag_filter)
+
+    query = "SELECT i.*, t.name as theme_name FROM images i LEFT JOIN themes t ON i.theme_id = t.id WHERE 1=1"
+    where_extra = ""
+    params = []
+
+    if theme_filter:
+        where_extra += " AND t.name = ?"
+        params.append(theme_filter)
+    if tag_filter:
+        where_extra += " AND i.id IN (SELECT image_id FROM image_tags it JOIN tags tg ON it.tag_id = tg.id WHERE tg.name = ?)"
+        params.append(tag_filter)
+    if course_filter:
+        where_extra += " AND i.id IN (SELECT image_id FROM image_course_relevance icr JOIN courses c ON icr.course_id = c.id WHERE c.code = ?)"
+        params.append(course_filter)
+    if q:
+        field_map = {
+            'title': ['i.title'],
+            'creator': ['i.creator'],
+            'narrative': ['i.narrative'],
+            'tags': [],
+        }
+        if field == 'tags':
+            where_extra += " AND i.id IN (SELECT image_id FROM image_tags it JOIN tags tg ON it.tag_id = tg.id WHERE tg.name LIKE ?)"
+            params.append(f'%{q}%')
+        elif field in field_map and field_map[field]:
+            cols = field_map[field]
+            clauses = [f"{col} LIKE ?" for col in cols]
+            where_extra += f" AND ({' OR '.join(clauses)})"
+            params.extend([f'%{q}%'] * len(cols))
+        else:
+            where_extra += " AND (i.title LIKE ? OR i.description LIKE ? OR i.narrative LIKE ? OR i.creator LIKE ?)"
+            params.extend([f'%{q}%'] * 4)
+
+    query += where_extra
+
+    # Count
+    count_query = query.replace("SELECT i.*, t.name as theme_name FROM images i LEFT JOIN themes t ON i.theme_id = t.id",
+                                "SELECT COUNT(*) FROM images i LEFT JOIN themes t ON i.theme_id = t.id")
+    total_count = db.execute(count_query, params).fetchone()[0]
+
+    # Sort
+    sort_map = {
+        'newest': 'i.modified DESC',
+        'title': 'i.title ASC',
+        'creator': 'i.creator ASC',
+        'relevance': 'i.modified DESC',
+    }
+    order = sort_map.get(sort, 'i.modified DESC')
+    total_pages = max(1, (total_count + per_page - 1) // per_page)
+    page = min(page, total_pages)
+    offset = (page - 1) * per_page
+
+    query += f" ORDER BY {order} LIMIT ? OFFSET ?"
+    params.extend([per_page, offset])
+    images = db.execute(query, params).fetchall()
+
+    # Get tags and course relevance for each image result
+    results = []
+    for img in images:
+        img_tags = db.execute(
+            "SELECT tg.name FROM tags tg JOIN image_tags it ON tg.id = it.tag_id WHERE it.image_id = ? ORDER BY tg.name",
+            (img['id'],)).fetchall()
+        img_courses = db.execute(
+            "SELECT c.code, icr.fit FROM image_course_relevance icr JOIN courses c ON icr.course_id = c.id WHERE icr.image_id = ?",
+            (img['id'],)).fetchall()
+        results.append({**dict(img), 'tags': [t['name'] for t in img_tags], 'courses': img_courses, 'result_type': 'image'})
+
+    # Also search media table
+    if q:
+        media_where = "WHERE (m.title LIKE ? OR m.description LIKE ? OR m.creator LIKE ?)"
+        media_params = [f'%{q}%'] * 3
+        if theme_filter:
+            media_where += " AND t.name = ?"
+            media_params.append(theme_filter)
+        media_results = db.execute(
+            f"SELECT m.*, t.name as theme_name FROM media m LEFT JOIN themes t ON m.theme_id = t.id {media_where} ORDER BY m.modified DESC",
+            media_params).fetchall()
+        for m in media_results:
+            m_tags = db.execute(
+                "SELECT tg.name FROM tags tg JOIN media_tags mt ON tg.id = mt.tag_id WHERE mt.media_id = ? ORDER BY tg.name",
+                (m['id'],)).fetchall()
+            m_courses = db.execute(
+                "SELECT c.code, mcr.fit FROM media_course_relevance mcr JOIN courses c ON mcr.course_id = c.id WHERE mcr.media_id = ?",
+                (m['id'],)).fetchall()
+            results.append({**dict(m), 'tags': [t['name'] for t in m_tags], 'courses': m_courses, 'result_type': 'media'})
+        total_count += len(media_results)
+
+    # Facets
+    facets = get_facet_counts(db, where_extra, params[:-2]) if has_search else get_facet_counts(db)
+
+    # Collection data (themes with counts and representative thumbnails)
+    collections = db.execute(
+        "SELECT t.name, t.description, COUNT(i.id) as count, "
+        "(SELECT i2.filename FROM images i2 WHERE i2.theme_id = t.id ORDER BY i2.modified DESC LIMIT 1) as thumb "
+        "FROM themes t LEFT JOIN images i ON i.theme_id = t.id GROUP BY t.id HAVING count > 0 ORDER BY count DESC"
+    ).fetchall()
+
+    total_images = db.execute("SELECT COUNT(*) FROM images").fetchone()[0]
+    total_media = db.execute("SELECT COUNT(*) FROM media").fetchone()[0]
+    stats = {
+        'total_images': total_images,
+        'total_media': total_media,
+        'total_items': total_images + total_media,
+        'total_themes': db.execute("SELECT COUNT(*) FROM themes WHERE id IN (SELECT DISTINCT theme_id FROM images WHERE theme_id IS NOT NULL)").fetchone()[0],
+        'total_courses': db.execute("SELECT COUNT(*) FROM courses").fetchone()[0],
+    }
+
+    # Recent additions (last 5 images + media combined, sorted by date)
+    recent_images = db.execute(
+        "SELECT i.id, i.title, i.creator, i.filename, i.modified, t.name as theme_name, 'image' as result_type "
+        "FROM images i LEFT JOIN themes t ON i.theme_id = t.id ORDER BY i.modified DESC LIMIT 5").fetchall()
+    recent_media = db.execute(
+        "SELECT m.id, m.title, m.creator, NULL as filename, m.modified, t.name as theme_name, 'media' as result_type "
+        "FROM media m LEFT JOIN themes t ON m.theme_id = t.id ORDER BY m.modified DESC LIMIT 5").fetchall()
+    recent = sorted([dict(r) for r in recent_images] + [dict(r) for r in recent_media],
+                    key=lambda x: x.get('modified', ''), reverse=True)[:5]
+
+    # Suggestions for zero results
+    suggestions = get_suggestions(db, q) if has_search and total_count == 0 and q else []
+
+    db.close()
+    return render_template('library.html', results=results, collections=collections, facets=facets,
+                           stats=stats, has_search=has_search, search=q, field=field,
+                           current_theme=theme_filter, current_course=course_filter, current_tag=tag_filter,
+                           sort=sort, page=page, total_pages=total_pages, total_count=total_count,
+                           recent=recent, suggestions=suggestions)
+
+
+@app.route('/browse')
+def browse():
     db = get_db()
     theme_filter = request.args.get('theme')
     tag_filter = request.args.get('tag')
@@ -205,6 +632,69 @@ def image_edit(image_id):
     return render_template('edit.html', image=image, themes=themes, tag_str=tag_str)
 
 
+def auto_process_image(image_id, filename=None, page_meta=None):
+    """Auto-process an image: populate metadata from Wikipedia or page context.
+
+    Args:
+        image_id: Database ID of the image
+        filename: Image filename (for Wikipedia search)
+        page_meta: Optional dict with 'title' and 'description' from source page.
+                   When provided, uses page context instead of Wikipedia.
+
+    Returns the metadata dict if found, None otherwise.
+    """
+    from process_image import update_image_metadata, get_theme_id_by_name
+
+    # If we have page metadata (from article URL import), use that directly
+    if page_meta and page_meta.get('title'):
+        result = classify_from_page(page_meta['title'], page_meta.get('description', ''))
+        result['narrative'] = page_meta.get('description')
+        result['medium'] = 'Digital image'
+    else:
+        # Fall back to Wikipedia search based on filename
+        if filename is None:
+            db = get_db()
+            image = db.execute("SELECT filename FROM images WHERE id=?", (image_id,)).fetchone()
+            db.close()
+            if not image:
+                return None
+            filename = image['filename']
+
+        result = search_metadata(filename)
+
+    if not result:
+        return None
+
+    theme_id = get_theme_id_by_name(result['theme']) if result.get('theme') else None
+
+    update_image_metadata(
+        image_id,
+        title=result.get('title'),
+        description=result.get('description'),
+        narrative=result.get('narrative'),
+        medium=result.get('medium'),
+        theme_id=theme_id,
+        tags=result.get('tags'),
+    )
+
+    # Set course relevance
+    if result.get('courses'):
+        db = get_db()
+        db.execute("DELETE FROM image_course_relevance WHERE image_id=?", (image_id,))
+        for entry in result['courses']:
+            course = db.execute("SELECT id FROM courses WHERE code=?", (entry['code'],)).fetchone()
+            if course:
+                db.execute(
+                    "INSERT INTO image_course_relevance (image_id, course_id, relevance, fit) VALUES (?, ?, ?, ?)",
+                    (image_id, course['id'], entry['relevance'], entry.get('fit', 'moderate')),
+                )
+        db.commit()
+        db.close()
+
+    app.logger.info("Auto-processed image %d: %s", image_id, result.get('title', ''))
+    return result
+
+
 @app.route('/upload', methods=['GET', 'POST'])
 def upload():
     db = get_db()
@@ -227,6 +717,17 @@ def upload():
 
                 file.save(filepath)
 
+                # Duplicate detection by content hash
+                content_hash = compute_file_hash(filepath)
+                existing = db.execute("SELECT id, filename FROM images WHERE content_hash=?", (content_hash,)).fetchone()
+                if existing:
+                    os.remove(filepath)
+                    flash(f'Duplicate: this image already exists as "{existing["filename"]}"', 'info')
+                    if len(files) == 1:
+                        db.close()
+                        return redirect(url_for('image_detail', image_id=existing['id']))
+                    continue
+
                 try:
                     with PILImage.open(filepath) as img:
                         w, h = img.size
@@ -236,22 +737,36 @@ def upload():
                 fsize = os.path.getsize(filepath)
                 mimetype = file.content_type
 
-                db.execute("""INSERT INTO images (filename, original_filename, title, file_size, width, height, mimetype)
-                              VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                           (filename, file.filename, base, fsize, w, h, mimetype))
+                db.execute("""INSERT INTO images (filename, original_filename, title, file_size, width, height, mimetype, content_hash)
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                           (filename, file.filename, base, fsize, w, h, mimetype, content_hash))
 
                 uploaded.append({'filename': filename, 'file_size': fsize, 'width': w, 'height': h})
 
         db.commit()
 
-        if len(uploaded) == 1:
-            # Single file — go to detail
-            image = db.execute("SELECT id FROM images WHERE filename=?", (uploaded[0]['filename'],)).fetchone()
-            db.close()
-            return redirect(url_for('image_detail', image_id=image['id']))
+        # Collect image IDs and close DB before auto-processing
+        for img_info in uploaded:
+            row = db.execute("SELECT id FROM images WHERE filename=?", (img_info['filename'],)).fetchone()
+            if row:
+                img_info['id'] = row['id']
+        db.close()
+
+        # Auto-process: search metadata for each uploaded image
+        for img_info in uploaded:
+            if 'id' in img_info:
+                result = auto_process_image(img_info['id'], img_info['filename'])
+                img_info['processed'] = result is not None
+                if result:
+                    img_info['found_title'] = result.get('title', '')
+
+        if len(uploaded) == 1 and 'id' in uploaded[0]:
+            return redirect(url_for('image_detail', image_id=uploaded[0]['id']))
+
+        return render_template('upload.html', uploaded=uploaded)
 
     db.close()
-    return render_template('upload.html', uploaded=uploaded if uploaded else None)
+    return render_template('upload.html', uploaded=None)
 
 
 @app.route('/import-url', methods=['GET', 'POST'])
@@ -302,20 +817,72 @@ def import_url():
                     return render_template('import_url.html')
 
             try:
+                from bs4 import BeautifulSoup
+
                 headers = {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
                     'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8'
                 }
+                page_meta = None  # Metadata extracted from article pages
+                source_url = url  # Preserved for attribution
+
                 resp = requests.get(url, headers=headers, timeout=15, stream=True)
                 resp.raise_for_status()
 
                 content_type = resp.headers.get('content-type', '')
                 if 'image' not in content_type:
-                    flash('URL did not return an image.', 'error')
-                    db.close()
-                    return render_template('import_url.html')
+                    # Not a direct image — scrape the page for its main image + metadata
+                    page_resp = requests.get(url, headers={
+                        'User-Agent': headers['User-Agent'],
+                        'Accept': 'text/html,*/*',
+                    }, timeout=15)
+                    soup = BeautifulSoup(page_resp.text, 'html.parser')
 
-                # Determine filename
+                    # Extract page metadata for auto-processing
+                    og_title = soup.find('meta', property='og:title')
+                    og_desc = soup.find('meta', property='og:description')
+                    page_meta = {
+                        'title': og_title['content'].strip() if og_title and og_title.get('content') else None,
+                        'description': og_desc['content'].strip() if og_desc and og_desc.get('content') else None,
+                    }
+
+                    # Find the main image: og:image first, then content images
+                    img_url = None
+                    og_img = soup.find('meta', property='og:image')
+                    if og_img and og_img.get('content'):
+                        img_url = og_img['content']
+                    else:
+                        for img in soup.find_all('img', src=True):
+                            src = img['src']
+                            if any(x in src.lower() for x in ('.jpg', '.jpeg', '.png', '.webp', '.gif')):
+                                if 'logo' not in src.lower() and 'icon' not in src.lower():
+                                    img_url = src
+                                    break
+
+                    if not img_url:
+                        flash('No images found on this page.', 'error')
+                        db.close()
+                        return render_template('import_url.html')
+
+                    # Make absolute if relative
+                    if img_url.startswith('//'):
+                        img_url = 'https:' + img_url
+                    elif img_url.startswith('/'):
+                        parsed_base = urlparse(url)
+                        img_url = f"{parsed_base.scheme}://{parsed_base.netloc}{img_url}"
+
+                    # Re-fetch the actual image
+                    url = img_url
+                    resp = requests.get(url, headers=headers, timeout=15, stream=True)
+                    resp.raise_for_status()
+                    content_type = resp.headers.get('content-type', '')
+
+                    if 'image' not in content_type:
+                        flash('Could not retrieve an image from this page.', 'error')
+                        db.close()
+                        return render_template('import_url.html')
+
+                # Determine filename and extension
                 ext = 'jpg'
                 if 'png' in content_type:
                     ext = 'png'
@@ -326,6 +893,8 @@ def import_url():
 
                 if title:
                     safe_title = re.sub(r'[^\w\s\-]', '', title).replace(' ', '_')
+                elif page_meta and page_meta.get('title'):
+                    safe_title = re.sub(r'[^\w\s\-]', '', page_meta['title']).replace(' ', '_')[:80]
                 else:
                     parsed = urlparse(url)
                     safe_title = os.path.splitext(os.path.basename(parsed.path))[0] or 'imported'
@@ -345,6 +914,15 @@ def import_url():
                     for chunk in resp.iter_content(8192):
                         f.write(chunk)
 
+                # Duplicate detection by content hash
+                content_hash = compute_file_hash(filepath)
+                existing = db.execute("SELECT id, filename FROM images WHERE content_hash=?", (content_hash,)).fetchone()
+                if existing:
+                    os.remove(filepath)
+                    flash(f'Duplicate: this image already exists as "{existing["filename"]}"', 'info')
+                    db.close()
+                    return redirect(url_for('image_detail', image_id=existing['id']))
+
                 # Get dimensions
                 try:
                     with PILImage.open(filepath) as img:
@@ -353,12 +931,13 @@ def import_url():
                     w, h = 0, 0
 
                 fsize = os.path.getsize(filepath)
+                display_title = title or (page_meta['title'] if page_meta and page_meta.get('title') else safe_title)
 
                 db.execute("""INSERT INTO images (filename, original_filename, title, source_url, theme_id,
-                              file_size, width, height, mimetype)
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                           (filename, os.path.basename(url), title or safe_title, url, theme_id,
-                            fsize, w, h, content_type))
+                              file_size, width, height, mimetype, content_hash)
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                           (filename, os.path.basename(url), display_title, source_url, theme_id,
+                            fsize, w, h, content_type, content_hash))
                 image_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
 
                 for tag_name in [t.strip() for t in tag_str.split(',') if t.strip()]:
@@ -372,6 +951,10 @@ def import_url():
 
                 db.commit()
                 db.close()
+
+                # Auto-process: use page metadata if scraped from article, else filename
+                auto_process_image(image_id, filename, page_meta=page_meta)
+
                 return redirect(url_for('image_detail', image_id=image_id))
 
             except Exception as e:
@@ -516,6 +1099,15 @@ def api_image(image_id):
     )
     db.close()
     return jsonify({'ok': True, 'image_id': image_id})
+
+
+@app.route('/api/image/<int:image_id>/auto-process', methods=['POST'])
+def api_auto_process(image_id):
+    """Trigger automatic metadata search for an image."""
+    result = auto_process_image(image_id)
+    if result:
+        return jsonify({'ok': True, 'image_id': image_id, 'title': result.get('title', '')})
+    return jsonify({'ok': False, 'message': 'No metadata found for this filename'}), 404
 
 
 @app.route('/api/stats')

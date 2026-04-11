@@ -3,7 +3,7 @@
 {% block content %}
 <div class="theme-grid">
     {% for theme in themes %}
-    <a href="{{ url_for('index', theme=theme.name) }}" class="theme-card">
+    <a href="{{ url_for('browse', theme=theme.name) }}" class="theme-card">
         <div class="count">{{ theme.image_count }}</div>
         <h3>{{ theme.name }}</h3>
         <div class="desc">{{ theme.description }}</div>

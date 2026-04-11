@@ -1,0 +1,461 @@
+{% extends "base.html" %}
+{% block title %}Iris — Library Search{% endblock %}
+{% block content %}
+
+<div class="library-hero">
+    <h1 class="library-title">Iris</h1>
+    <p class="library-subtitle">Image and Media Library for Black Studies</p>
+    <form class="library-search-form" action="{{ url_for('library') }}" method="get" id="library-search-form" onsubmit="saveSearch()">
+        <div class="search-bar-wrapper">
+            <select name="field" class="search-field-select">
+                <option value="all" {{ 'selected' if field == 'all' }}>All Fields</option>
+                <option value="title" {{ 'selected' if field == 'title' }}>Title</option>
+                <option value="creator" {{ 'selected' if field == 'creator' }}>Creator</option>
+                <option value="narrative" {{ 'selected' if field == 'narrative' }}>Narrative</option>
+                <option value="tags" {{ 'selected' if field == 'tags' }}>Tags</option>
+            </select>
+            <div class="search-input-wrapper">
+                <input type="text" name="q" id="library-search-input" placeholder="Search images, videos, creators, themes, narratives..." value="{{ search or '' }}" autocomplete="off" autofocus>
+                <div class="autocomplete-dropdown" id="autocomplete-dropdown"></div>
+            </div>
+            <button type="submit" class="search-submit">Search</button>
+        </div>
+        {% if current_theme or current_course or current_tag %}
+        <div class="active-filters">
+            {% if current_theme %}<span class="active-filter">Theme: {{ current_theme }} <a href="{{ url_for('library', q=search, field=field, course=current_course, tag=current_tag) }}">&times;</a></span>{% endif %}
+            {% if current_course %}<span class="active-filter">Course: {{ current_course }} <a href="{{ url_for('library', q=search, field=field, theme=current_theme, tag=current_tag) }}">&times;</a></span>{% endif %}
+            {% if current_tag %}<span class="active-filter">Tag: {{ current_tag }} <a href="{{ url_for('library', q=search, field=field, theme=current_theme, course=current_course) }}">&times;</a></span>{% endif %}
+            <a href="{{ url_for('library') }}" class="clear-all">Clear all</a>
+        </div>
+        {% endif %}
+    </form>
+</div>
+
+{% if not has_search %}
+<div class="library-collections">
+    <div id="search-history" class="search-history"></div>
+    <div class="stats-summary">
+        {{ stats.total_items }} items ({{ stats.total_images }} images, {{ stats.total_media }} videos) across {{ stats.total_themes }} themes, serving {{ stats.total_courses }} courses
+    </div>
+    <div class="collection-grid">
+        {% for col in collections %}
+        <a class="collection-card" href="{{ url_for('library', theme=col.name) }}">
+            {% if col.thumb %}
+            <img src="{{ url_for('static', filename='uploads/' + col.thumb) }}" alt="{{ col.name }}">
+            {% else %}
+            <div class="collection-placeholder"></div>
+            {% endif %}
+            <div class="collection-info">
+                <span class="collection-name">{{ col.name }}</span>
+                <span class="collection-count">{{ col.count }} image{{ 's' if col.count != 1 }}</span>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+
+    {% if recent %}
+    <div class="recent-section">
+        <h3 class="section-heading">Recently Added</h3>
+        <div class="recent-grid">
+            {% for item in recent %}
+            <a class="recent-card" href="{{ url_for('image_detail', image_id=item.id) if item.result_type == 'image' else url_for('media_detail', media_id=item.id) }}">
+                {% if item.result_type == 'image' and item.filename %}
+                <img src="{{ url_for('static', filename='uploads/' + item.filename) }}" alt="{{ item.title }}" class="recent-thumb">
+                {% else %}
+                <div class="recent-thumb recent-media-thumb"><span class="media-icon">&#9654;</span></div>
+                {% endif %}
+                <div class="recent-info">
+                    <span class="recent-title">{{ item.title }}</span>
+                    {% if item.creator %}<span class="recent-creator">{{ item.creator }}</span>{% endif %}
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="quick-courses">
+        <h3 class="section-heading">Search by Course</h3>
+        <div class="course-buttons">
+            <a href="{{ url_for('library', course='BFS142') }}" class="course-btn">BFS142<span>Race, Resistance and the Black Athlete</span></a>
+            <a href="{{ url_for('library', course='BFS211') }}" class="course-btn">BFS211<span>Black Music and Social Liberation</span></a>
+            <a href="{{ url_for('library', course='BFS218') }}" class="course-btn">BFS218<span>Techno-Racism</span></a>
+            <a href="{{ url_for('library', course='BFS220') }}" class="course-btn">BFS220<span>Black Perspectives in Popular Culture</span></a>
+            <a href="{{ url_for('library', course='SOC122') }}" class="course-btn">SOC122<span>Intro to Social Sciences</span></a>
+        </div>
+    </div>
+
+    <div class="browse-link">
+        <a href="{{ url_for('browse') }}">Browse all images as grid &rarr;</a>
+    </div>
+</div>
+
+{% else %}
+<div class="library-results-layout">
+    <aside class="facet-sidebar">
+        {% if facets.themes %}
+        <div class="facet-group">
+            <h4>Themes</h4>
+            {% for f in facets.themes %}
+            <div class="facet-item">
+                <a href="{{ url_for('library', q=search, field=field, theme=f.name, course=current_course, tag=current_tag, sort=sort) }}" class="{{ 'facet-active' if f.name == current_theme }}">{{ f.name }}</a>
+                <span class="facet-count">{{ f.cnt }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if facets.courses %}
+        <div class="facet-group">
+            <h4>Courses</h4>
+            {% for f in facets.courses %}
+            <div class="facet-item">
+                <a href="{{ url_for('library', q=search, field=field, theme=current_theme, course=f.code, tag=current_tag, sort=sort) }}" class="{{ 'facet-active' if f.code == current_course }}">{{ f.code }}</a>
+                <span class="facet-count">{{ f.cnt }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if facets.mediums %}
+        <div class="facet-group">
+            <h4>Medium</h4>
+            {% for f in facets.mediums %}
+            <div class="facet-item">
+                <span>{{ f.medium }}</span>
+                <span class="facet-count">{{ f.cnt }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if facets.tags %}
+        <div class="facet-group">
+            <h4>Tags</h4>
+            <div class="tag-cloud">
+                {% for f in facets.tags %}
+                <a href="{{ url_for('library', q=search, field=field, theme=current_theme, course=current_course, tag=f.name, sort=sort) }}" class="{{ 'facet-active' if f.name == current_tag }}">{{ f.name }}</a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </aside>
+
+    <main class="results-main">
+        <div class="results-header">
+            <span class="results-count">{{ total_count }} result{{ 's' if total_count != 1 }}</span>
+            <div class="results-actions">
+                {% if total_count > 0 %}
+                <a href="{{ url_for('export_citations', course=current_course, theme=current_theme) }}" class="btn btn-secondary btn-sm" title="Export APA citations for these results">Export Citations</a>
+                {% endif %}
+                <form class="sort-form" action="{{ url_for('library') }}" method="get">
+                    <input type="hidden" name="q" value="{{ search or '' }}">
+                    <input type="hidden" name="field" value="{{ field }}">
+                    <input type="hidden" name="theme" value="{{ current_theme or '' }}">
+                    <input type="hidden" name="course" value="{{ current_course or '' }}">
+                    <input type="hidden" name="tag" value="{{ current_tag or '' }}">
+                    <label>Sort by</label>
+                    <select name="sort" onchange="this.form.submit()">
+                        <option value="newest" {{ 'selected' if sort == 'newest' }}>Newest</option>
+                        <option value="title" {{ 'selected' if sort == 'title' }}>Title A to Z</option>
+                        <option value="creator" {{ 'selected' if sort == 'creator' }}>Creator A to Z</option>
+                    </select>
+                </form>
+            </div>
+        </div>
+
+        {% if results %}
+        <div class="results-list">
+            {% for item in results %}
+            <article class="result-item">
+                {% if item.result_type == 'image' %}
+                <a href="{{ url_for('image_detail', image_id=item.id) }}" class="result-thumb-link">
+                    <img src="{{ url_for('static', filename='uploads/' + item.filename) }}" alt="{{ item.title }}" class="result-thumb" loading="lazy">
+                </a>
+                {% else %}
+                <a href="{{ url_for('media_detail', media_id=item.id) }}" class="result-thumb-link">
+                    <div class="result-thumb result-media-thumb">
+                        <span class="media-icon">&#9654;</span>
+                    </div>
+                </a>
+                {% endif %}
+                <div class="result-body">
+                    <h3 class="result-title">
+                        {% if item.result_type == 'image' %}
+                        <a href="{{ url_for('image_detail', image_id=item.id) }}">{{ item.title }}</a>
+                        {% else %}
+                        <a href="{{ url_for('media_detail', media_id=item.id) }}">{{ item.title }}</a>
+                        <span class="type-badge type-media">{{ item.media_type or 'video' }}</span>
+                        {% endif %}
+                    </h3>
+                    <div class="result-meta">
+                        {% if item.creator %}{{ item.creator }}{% endif %}
+                        {% if item.date %} | {{ item.date }}{% endif %}
+                        {% if item.get('source') %} | {{ item.source }}{% endif %}
+                        {% if item.theme_name %} | <span class="result-theme">{{ item.theme_name }}</span>{% endif %}
+                    </div>
+                    {% if item.get('narrative') %}
+                    <p class="result-narrative">{{ item.narrative[:220] }}{% if item.narrative|length > 220 %}...{% endif %}</p>
+                    {% elif item.get('description') %}
+                    <p class="result-narrative">{{ item.description[:220] }}{% if item.description|length > 220 %}...{% endif %}</p>
+                    {% endif %}
+                    {% if item.tags %}
+                    <div class="result-tags">
+                        {% for tag in item.tags[:8] %}
+                        <a href="{{ url_for('library', q=search, field=field, theme=current_theme, course=current_course, tag=tag, sort=sort) }}" class="result-tag">{{ tag }}</a>
+                        {% endfor %}
+                        {% if item.tags|length > 8 %}<span class="result-tag-more">+{{ item.tags|length - 8 }}</span>{% endif %}
+                    </div>
+                    {% endif %}
+                    {% if item.courses %}
+                    <div class="result-courses">
+                        {% for c in item.courses %}
+                        <span class="course-badge fit-{{ c.fit }}">{{ c.code }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% if item.apa_citation %}
+                    <details class="result-citation">
+                        <summary>APA Citation</summary>
+                        <code class="apa-citation">{{ item.apa_citation }}</code>
+                    </details>
+                    {% endif %}
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+
+        {% if total_pages > 1 %}
+        <div class="library-pagination">
+            {% if page > 1 %}
+            <a href="{{ url_for('library', q=search, field=field, theme=current_theme, course=current_course, tag=current_tag, sort=sort, page=page-1) }}" class="btn btn-secondary">Previous</a>
+            {% endif %}
+            <span class="page-info">Page {{ page }} of {{ total_pages }}</span>
+            {% if page < total_pages %}
+            <a href="{{ url_for('library', q=search, field=field, theme=current_theme, course=current_course, tag=current_tag, sort=sort, page=page+1) }}" class="btn btn-secondary">Next</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Web Research Section -->
+        <div class="web-research-section" id="web-research">
+            <div class="web-research-header">
+                <h3 class="section-heading">Search the Web</h3>
+                <p class="web-research-desc">Find images from Wikimedia Commons, Smithsonian NMAAHC, Library of Congress, and Wikipedia</p>
+                <button class="btn btn-primary" id="web-search-btn" onclick="searchWeb('{{ search or '' }}')">Search: "{{ search or '' }}"</button>
+            </div>
+            <div id="web-results" class="web-results-grid"></div>
+            <div id="web-loading" class="web-loading" style="display:none;">Searching institutional collections...</div>
+        </div>
+
+        {% else %}
+        <div class="no-results">
+            <p>No results found for "{{ search }}" in your library.</p>
+            {% if suggestions %}
+            <div class="suggestions">
+                <p>Did you mean:</p>
+                {% for s in suggestions %}
+                <a href="{{ url_for('library', q=s.text, field='tags' if s.type == 'tag' else 'all') }}" class="suggestion-link">{{ s.text }} <span class="suggestion-type">{{ s.type }}</span></a>
+                {% endfor %}
+            </div>
+            {% endif %}
+            <div class="zero-results-web">
+                <p>Search institutional collections instead?</p>
+                <button class="btn btn-primary" onclick="searchWeb('{{ search }}')">Search Wikimedia, Smithsonian, Library of Congress</button>
+                <div id="web-results" class="web-results-grid" style="margin-top: 16px;"></div>
+                <div id="web-loading" class="web-loading" style="display:none;">Searching institutional collections...</div>
+            </div>
+            <a href="{{ url_for('library') }}" style="display: block; margin-top: 16px;">Clear search</a>
+        </div>
+        {% endif %}
+    </main>
+</div>
+{% endif %}
+
+<!-- Keyboard hints -->
+<div class="keyboard-hints">
+    <span><kbd>/</kbd> Search</span>
+    <span><kbd>j</kbd><kbd>k</kbd> Navigate</span>
+    <span><kbd>Enter</kbd> Open</span>
+    <span><kbd>Esc</kbd> Close</span>
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" class="lightbox" onclick="this.style.display='none'" style="display:none">
+    <img id="lightbox-img" src="" alt="">
+    <div id="lightbox-caption" class="lightbox-caption"></div>
+</div>
+
+<script>
+// Autocomplete
+(function() {
+    const input = document.getElementById('library-search-input');
+    const dropdown = document.getElementById('autocomplete-dropdown');
+    let debounceTimer;
+
+    if (!input || !dropdown) return;
+
+    input.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        const q = this.value.trim();
+        if (q.length < 2) { dropdown.innerHTML = ''; dropdown.style.display = 'none'; return; }
+        debounceTimer = setTimeout(() => {
+            fetch('/api/autocomplete?q=' + encodeURIComponent(q))
+                .then(r => r.json())
+                .then(items => {
+                    if (!items.length) { dropdown.style.display = 'none'; return; }
+                    dropdown.innerHTML = items.map(i =>
+                        `<div class="ac-item" data-text="${i.text}">
+                            <span class="ac-text">${i.text}</span>
+                            <span class="ac-type">${i.type}</span>
+                        </div>`
+                    ).join('');
+                    dropdown.style.display = 'block';
+                })
+                .catch(() => { dropdown.style.display = 'none'; });
+        }, 200);
+    });
+
+    dropdown.addEventListener('click', function(e) {
+        const item = e.target.closest('.ac-item');
+        if (item) {
+            input.value = item.dataset.text;
+            dropdown.style.display = 'none';
+            document.getElementById('library-search-form').submit();
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.search-input-wrapper')) dropdown.style.display = 'none';
+    });
+
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') dropdown.style.display = 'none';
+    });
+})();
+
+// Lightbox for image previews
+document.addEventListener('click', function(e) {
+    const thumb = e.target.closest('.result-thumb-link img');
+    if (thumb) {
+        e.preventDefault();
+        const lb = document.getElementById('lightbox');
+        const img = document.getElementById('lightbox-img');
+        const caption = document.getElementById('lightbox-caption');
+        img.src = thumb.src;
+        caption.textContent = thumb.alt || '';
+        lb.style.display = 'flex';
+    }
+});
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        document.getElementById('lightbox').style.display = 'none';
+    }
+});
+
+// Keyboard navigation
+(function() {
+    let activeResult = -1;
+    document.addEventListener('keydown', function(e) {
+        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+
+        // / to focus search
+        if (e.key === '/') {
+            e.preventDefault();
+            const input = document.getElementById('library-search-input');
+            if (input) { input.focus(); input.select(); }
+            return;
+        }
+
+        // j/k or arrow keys to navigate results
+        const items = document.querySelectorAll('.result-item');
+        if (!items.length) return;
+
+        if (e.key === 'j' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (activeResult >= 0) items[activeResult].classList.remove('result-focused');
+            activeResult = Math.min(activeResult + 1, items.length - 1);
+            items[activeResult].classList.add('result-focused');
+            items[activeResult].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } else if (e.key === 'k' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (activeResult >= 0) items[activeResult].classList.remove('result-focused');
+            activeResult = Math.max(activeResult - 1, 0);
+            items[activeResult].classList.add('result-focused');
+            items[activeResult].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } else if (e.key === 'Enter' && activeResult >= 0) {
+            const link = items[activeResult].querySelector('.result-title a');
+            if (link) link.click();
+        }
+    });
+})();
+
+// Search history (localStorage)
+function saveSearch() {
+    const q = document.getElementById('library-search-input').value.trim();
+    if (!q) return;
+    let history = JSON.parse(localStorage.getItem('iris_search_history') || '[]');
+    history = history.filter(h => h !== q);
+    history.unshift(q);
+    history = history.slice(0, 8);
+    localStorage.setItem('iris_search_history', JSON.stringify(history));
+}
+function renderSearchHistory() {
+    const container = document.getElementById('search-history');
+    if (!container) return;
+    const history = JSON.parse(localStorage.getItem('iris_search_history') || '[]');
+    if (!history.length) return;
+    container.innerHTML = '<div class="history-label">Recent searches</div>' +
+        history.map(h => `<a href="/library?q=${encodeURIComponent(h)}" class="history-chip">${h}</a>`).join('') +
+        '<a href="#" class="history-clear" onclick="localStorage.removeItem(\'iris_search_history\');this.parentElement.innerHTML=\'\';return false;">Clear</a>';
+}
+renderSearchHistory();
+
+// Web research
+function searchWeb(query) {
+    if (!query) return;
+    const resultsDiv = document.getElementById('web-results');
+    const loading = document.getElementById('web-loading');
+    const btn = document.getElementById('web-search-btn');
+    loading.style.display = 'block';
+    btn.disabled = true;
+    btn.textContent = 'Searching...';
+    resultsDiv.innerHTML = '';
+
+    fetch('/api/web-search?q=' + encodeURIComponent(query))
+        .then(r => r.json())
+        .then(data => {
+            loading.style.display = 'none';
+            btn.disabled = false;
+            btn.textContent = 'Search again';
+            if (!data.results || !data.results.length) {
+                resultsDiv.innerHTML = '<p class="web-no-results">No web results found. Try different search terms.</p>';
+                return;
+            }
+            resultsDiv.innerHTML = `<p class="web-sources">Sources: ${(data.sources || []).join(', ')}</p>` +
+                data.results.map(r => `
+                    <div class="web-result-card">
+                        <img src="${r.thumb_url}" alt="${r.title}" class="web-thumb" loading="lazy" onerror="this.style.display='none'">
+                        <div class="web-result-info">
+                            <div class="web-result-title">${r.title}</div>
+                            <div class="web-result-meta">${r.creator || ''} | ${r.source}</div>
+                            ${r.description ? `<div class="web-result-desc">${r.description.substring(0, 150)}${r.description.length > 150 ? '...' : ''}</div>` : ''}
+                            <div class="web-result-actions">
+                                <a href="/import-url?url=${encodeURIComponent(r.full_url)}" class="btn btn-primary btn-sm">Import to Iris</a>
+                                <a href="${r.source_page}" target="_blank" class="btn btn-secondary btn-sm">View Source</a>
+                                <span class="web-license">${r.license}</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+        })
+        .catch(() => {
+            loading.style.display = 'none';
+            btn.disabled = false;
+            btn.textContent = 'Search: "' + query + '"';
+            resultsDiv.innerHTML = '<p class="web-no-results">Search failed. Check your connection.</p>';
+        });
+}
+</script>
+
+{% endblock %}

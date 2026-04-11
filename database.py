@@ -1,5 +1,6 @@
 """Image Library Database — SQLite schema and operations."""
 import sqlite3
+import hashlib
 import os
 from datetime import datetime
 
@@ -95,8 +96,34 @@ def init_db():
     for name, desc in default_themes:
         c.execute("INSERT OR IGNORE INTO themes (name, description) VALUES (?, ?)", (name, desc))
 
+    # Migration: add content_hash column for duplicate detection
+    existing = [r[1] for r in c.execute("PRAGMA table_info(images)").fetchall()]
+    if 'content_hash' not in existing:
+        c.execute("ALTER TABLE images ADD COLUMN content_hash TEXT")
+
     conn.commit()
+
+    # Backfill hashes for existing images missing them
+    upload_dir = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
+    unhashed = conn.execute("SELECT id, filename FROM images WHERE content_hash IS NULL").fetchall()
+    for row in unhashed:
+        filepath = os.path.join(upload_dir, row['filename'])
+        if os.path.exists(filepath):
+            h = compute_file_hash(filepath)
+            conn.execute("UPDATE images SET content_hash=? WHERE id=?", (h, row['id']))
+    if unhashed:
+        conn.commit()
+
     conn.close()
+
+def compute_file_hash(filepath):
+    """Compute SHA256 hash of a file for duplicate detection."""
+    h = hashlib.sha256()
+    with open(filepath, 'rb') as f:
+        for chunk in iter(lambda: f.read(8192), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
 
 def generate_apa_citation(image):
     """Generate APA 7th edition citation for an image."""

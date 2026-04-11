@@ -12,7 +12,7 @@
             </div>
             <div class="btn-group">
                 <button type="submit" class="btn btn-primary">Upload</button>
-                <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancel</a>
+                <a href="{{ url_for('browse') }}" class="btn btn-secondary">Cancel</a>
             </div>
         </form>
     </div>
@@ -20,14 +20,22 @@
     {% if uploaded %}
     <div class="form-section">
         <h2>Uploaded ({{ uploaded|length }})</h2>
-        <p style="color: var(--text-muted); margin-bottom: 12px;">These images are queued for processing. Run "process new images" in Claude Code to auto-populate metadata.</p>
         {% for img in uploaded %}
         <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border);">
             <img src="{{ url_for('static', filename='uploads/' + img.filename) }}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px;">
-            <div>
-                <div style="font-weight: 600;">{{ img.filename }}</div>
+            <div style="flex: 1;">
+                <div style="font-weight: 600;">
+                    {% if img.id %}<a href="{{ url_for('image_detail', image_id=img.id) }}" style="color: inherit;">{% endif %}
+                    {{ img.found_title if img.processed else img.filename }}
+                    {% if img.id %}</a>{% endif %}
+                </div>
                 <div style="font-size: 13px; color: var(--text-muted);">{{ (img.file_size / 1024)|round(1) }} KB | {{ img.width }}x{{ img.height }}</div>
             </div>
+            {% if img.processed %}
+            <span style="font-size: 12px; color: var(--accent); font-weight: 600;">Metadata found</span>
+            {% else %}
+            <span style="font-size: 12px; color: var(--text-muted);">No auto-match</span>
+            {% endif %}
         </div>
         {% endfor %}
     </div>
