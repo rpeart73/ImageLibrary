@@ -118,19 +118,29 @@ def brain_assess():
     )
 
     try:
-        # Query Seneca Brain via NotebookLM MCP (using subprocess since we can't call MCP from Flask directly)
-        import subprocess
+        import subprocess, json as _json
+        # Sanitize prompt: remove newlines, limit length
+        clean_prompt = brain_prompt.replace('\n', ' ').replace('"', "'")[:1500]
+
         result = subprocess.run(
             [os.path.expanduser('~/.local/bin/nlm'), 'notebook', 'query',
-             BRAIN_IDS['seneca'], brain_prompt],
-            capture_output=True, text=True, timeout=30
+             '--json', BRAIN_IDS['seneca'], clean_prompt],
+            capture_output=True, text=True, timeout=45
         )
         if result.returncode == 0:
-            return jsonify({'assessment': result.stdout.strip(), 'query': query, 'course': course})
+            try:
+                brain_data = _json.loads(result.stdout)
+                answer = brain_data.get('value', {}).get('answer', result.stdout.strip())
+            except (_json.JSONDecodeError, KeyError):
+                answer = result.stdout.strip()
+            return jsonify({'assessment': answer, 'query': query, 'course': course})
         else:
-            return jsonify({'assessment': 'Brain query failed. Results shown without relevance scoring.', 'error': result.stderr[:200]})
+            return jsonify({'assessment': 'Brain query failed. Results shown without relevance scoring.',
+                            'error': result.stderr[:300]})
+    except subprocess.TimeoutExpired:
+        return jsonify({'assessment': 'Brain query timed out (45s). The Seneca Brain may be processing. Try again.'})
     except Exception as e:
-        return jsonify({'assessment': f'Brain unavailable: {str(e)[:100]}. Results shown without relevance scoring.'})
+        return jsonify({'assessment': f'Brain unavailable: {str(e)[:200]}. Results shown without relevance scoring.'})
 
 
 _web_search_last = {}
