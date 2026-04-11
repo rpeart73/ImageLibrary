@@ -11,7 +11,7 @@
     <nav class="nav">
         <a href="{{ url_for('library') }}" class="nav-brand">Iris — Image Library</a>
         <div class="nav-links">
-            <a href="{{ url_for('library') }}" class="{{ 'active' if request.endpoint == 'library' }}">Library</a>
+            <a href="{{ url_for('library') }}" class="{{ 'active' if request.endpoint == 'library' }}">Home</a>
             <a href="{{ url_for('browse') }}" class="{{ 'active' if request.endpoint == 'browse' }}">Browse</a>
             <a href="{{ url_for('themes') }}" class="{{ 'active' if request.endpoint == 'themes' }}">Themes</a>
             <a href="{{ url_for('media_list') }}" class="{{ 'active' if request.endpoint in ('media_list', 'media_detail') }}">Media</a>

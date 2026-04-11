@@ -687,9 +687,24 @@ a:hover { color: var(--accent-hover); }
     background: var(--surface);
 }
 
+.result-select {
+    display: flex;
+    align-items: flex-start;
+    padding-top: 4px;
+    flex-shrink: 0;
+}
+.citation-checkbox {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+.result-media-overlay {
+    position: relative;
+}
 .result-item {
     display: flex;
-    gap: 16px;
+    gap: 12px;
     padding: 16px 0;
     border-bottom: 1px solid var(--border);
     transition: background 0.1s;

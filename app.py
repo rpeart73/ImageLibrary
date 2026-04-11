@@ -271,6 +271,60 @@ def web_search():
     return jsonify({'results': results[:20], 'query': q, 'sources': ['Wikimedia Commons', 'Wikipedia', 'Smithsonian NMAAHC', 'Library of Congress']})
 
 
+@app.route('/api/export-citations', methods=['POST'])
+def export_selected_citations():
+    """Export APA 7th citations for selected items as formatted text."""
+    data = request.get_json()
+    if not data or 'items' not in data:
+        return jsonify({'error': 'No items provided'}), 400
+
+    db = get_db()
+    citations = []
+
+    for item in data['items']:
+        item_id = item.get('id')
+        item_type = item.get('type', 'image')
+
+        if item_type == 'image':
+            row = db.execute("SELECT title, creator, date, apa_citation, source_url FROM images WHERE id = ?", (item_id,)).fetchone()
+        else:
+            row = db.execute("SELECT title, creator, date, apa_citation, url as source_url FROM media WHERE id = ?", (item_id,)).fetchone()
+
+        if row and row['apa_citation']:
+            citations.append(row['apa_citation'])
+        elif row:
+            # Generate citation on the fly if missing
+            creator = row['creator'] or 'Unknown'
+            date = row['date'] or 'n.d.'
+            title = row['title'] or 'Untitled'
+            url = row['source_url'] or ''
+            citation = f"{creator}. ({date}). {title}"
+            if item_type == 'media':
+                citation += " [Video]"
+            else:
+                citation += " [Image]"
+            if url:
+                citation += f". {url}"
+            citations.append(citation)
+
+    db.close()
+
+    # Sort alphabetically by author (APA 7th standard)
+    citations.sort(key=lambda c: c.lower())
+
+    # Format as proper APA reference list
+    output_lines = ["References", ""]
+    for c in citations:
+        output_lines.append(c)
+        output_lines.append("")
+
+    return jsonify({
+        'citations': citations,
+        'formatted': '\n'.join(output_lines),
+        'count': len(citations),
+    })
+
+
 def get_suggestions(db, q):
     """Return 'did you mean' suggestions for zero-result searches."""
     suggestions = []
@@ -421,7 +475,9 @@ def library():
             m_courses = db.execute(
                 "SELECT c.code, mcr.fit FROM media_course_relevance mcr JOIN courses c ON mcr.course_id = c.id WHERE mcr.media_id = ?",
                 (m['id'],)).fetchall()
-            results.append({**dict(m), 'tags': [t['name'] for t in m_tags], 'courses': m_courses, 'result_type': 'media'})
+            media_dict = {**dict(m), 'tags': [t['name'] for t in m_tags], 'courses': m_courses, 'result_type': 'media'}
+            media_dict['thumbnail'] = m['thumbnail'] or None
+            results.append(media_dict)
         total_count += len(media_results)
 
     # Facets

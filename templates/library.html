@@ -146,7 +146,8 @@
             <span class="results-count">{{ total_count }} result{{ 's' if total_count != 1 }}</span>
             <div class="results-actions">
                 {% if total_count > 0 %}
-                <a href="{{ url_for('export_citations', course=current_course, theme=current_theme) }}" class="btn btn-secondary btn-sm" title="Export APA citations for these results">Export Citations</a>
+                <button class="btn btn-secondary btn-sm" id="select-all-btn" onclick="toggleSelectAll()">Select All</button>
+                <button class="btn btn-primary btn-sm" id="export-selected-btn" onclick="exportSelected()" disabled>Export Citations (0)</button>
                 {% endif %}
                 <form class="sort-form" action="{{ url_for('library') }}" method="get">
                     <input type="hidden" name="q" value="{{ search or '' }}">
@@ -168,9 +169,16 @@
         <div class="results-list">
             {% for item in results %}
             <article class="result-item">
+                <label class="result-select">
+                    <input type="checkbox" class="citation-checkbox" data-id="{{ item.id }}" data-type="{{ item.result_type }}">
+                </label>
                 {% if item.result_type == 'image' %}
                 <a href="{{ url_for('image_detail', image_id=item.id) }}" class="result-thumb-link">
                     <img src="{{ url_for('static', filename='uploads/' + item.filename) }}" alt="{{ item.title }}" class="result-thumb" loading="lazy">
+                </a>
+                {% elif item.get('thumbnail') %}
+                <a href="{{ url_for('media_detail', media_id=item.id) }}" class="result-thumb-link">
+                    <img src="{{ url_for('static', filename='uploads/' + item.thumbnail) }}" alt="{{ item.title }}" class="result-thumb result-media-overlay" loading="lazy">
                 </a>
                 {% else %}
                 <a href="{{ url_for('media_detail', media_id=item.id) }}" class="result-thumb-link">
@@ -389,6 +397,50 @@ document.addEventListener('keydown', function(e) {
         }
     });
 })();
+
+// Citation selection and export
+function updateExportButton() {
+    const checked = document.querySelectorAll('.citation-checkbox:checked');
+    const btn = document.getElementById('export-selected-btn');
+    if (btn) {
+        btn.disabled = checked.length === 0;
+        btn.textContent = `Export Citations (${checked.length})`;
+    }
+}
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('citation-checkbox')) updateExportButton();
+});
+function toggleSelectAll() {
+    const boxes = document.querySelectorAll('.citation-checkbox');
+    const allChecked = [...boxes].every(b => b.checked);
+    boxes.forEach(b => b.checked = !allChecked);
+    updateExportButton();
+    document.getElementById('select-all-btn').textContent = allChecked ? 'Select All' : 'Deselect All';
+}
+function exportSelected() {
+    const checked = document.querySelectorAll('.citation-checkbox:checked');
+    const items = [...checked].map(cb => ({id: parseInt(cb.dataset.id), type: cb.dataset.type}));
+    if (!items.length) return;
+
+    fetch('/api/export-citations', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({items: items})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.formatted) {
+            // Create and download as .txt file
+            const blob = new Blob([data.formatted], {type: 'text/plain'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'iris_citations_apa7.txt';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    });
+}
 
 // Search history (localStorage)
 function saveSearch() {
