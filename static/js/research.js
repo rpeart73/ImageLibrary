@@ -96,11 +96,11 @@ function clearAllSources() {
 
 // ─── Library Authentication ────────────────────────────
 
-const authState = { york: false, seneca: false };
+const authState = { york: false, seneca: false, britannica: false };
 
 document.addEventListener('DOMContentLoaded', function() {
     // Load auth state from sessionStorage
-    ['york', 'seneca'].forEach(lib => {
+    ['york', 'seneca', 'britannica'].forEach(lib => {
         if (sessionStorage.getItem('auth_' + lib) === '1') {
             authState[lib] = true;
             markConnected(lib);
