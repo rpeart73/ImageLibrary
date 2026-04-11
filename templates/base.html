@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Iris{% endblock %}</title>
+    <title>{% block title %}Loom Research{% endblock %}</title>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <meta name="description" content="Iris: Curriculum-aware research intelligence. 26 databases, Two-Eyed Seeing, citation export, Zotero pipeline, image library.">
+    <meta name="description" content="Loom Research: Curriculum-aware research intelligence. 26 databases, Two-Eyed Seeing, citation export, Zotero pipeline, image library.">
 </head>
 <body>
     <nav class="nav">
-        <a href="{{ url_for('research') }}" class="nav-brand">Iris</a>
+        <a href="{{ url_for('research') }}" class="nav-brand">Loom Research</a>
         <div class="nav-links">
             <a href="{{ url_for('research') }}" class="{{ 'active' if request.endpoint == 'research' }}">Research</a>
             <a href="{{ url_for('library') }}" class="{{ 'active' if request.endpoint == 'library' }}">Library</a>

@@ -1,7 +1,7 @@
 """
-Iris — YouTube Video Backup Script
+Loom Research — YouTube Video Backup Script
 
-Downloads YouTube videos from Iris media library to Proton Drive + Tresorit.
+Downloads YouTube videos from Loom Research media library to Proton Drive + Tresorit.
 Only downloads videos at risk of disappearing (YouTube). pCloud-hosted files
 are not downloaded (you control the hosting). Large files (over 500MB) are
 skipped unless explicitly requested.

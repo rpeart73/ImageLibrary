@@ -1,4 +1,4 @@
-"""Iris — Production entry point."""
+"""Loom Research — Production entry point."""
 from app import app
 from database import init_db
 

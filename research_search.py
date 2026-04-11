@@ -1,5 +1,5 @@
 """
-Iris Research Portal — Research Search Engine
+Loom Research — Research Search Engine
 
 14 API adapters searched concurrently via ThreadPoolExecutor.
 Deduplication by DOI and URL. Quality scoring 0-100.
@@ -22,7 +22,7 @@ from bs4 import BeautifulSoup
 # Shared session for connection pooling
 _session = requests.Session()
 _session.headers.update({
-    'User-Agent': 'IrisResearchPortal/2.0 (educational; Black Studies curriculum research)'
+    'User-Agent': 'LoomResearch/2.0 (educational; Black Studies curriculum research)'
 })
 
 TIMEOUT = 20  # per-source timeout in seconds

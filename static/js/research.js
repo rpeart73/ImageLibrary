@@ -1,5 +1,5 @@
 /**
- * Iris Research Portal — Client-Side Logic
+ * Loom Research — Client-Side Logic
  *
  * Search, filter, select, export, reading list, brain assessment.
  */
@@ -325,7 +325,7 @@ function renderCard(r, isTwoEyed) {
                 ${isTwoEyed && r.indigenous_term ? '<div style="font-size:11px;color:#8b5e3c;margin-top:4px">Indigenous perspective: ' + esc(r.indigenous_term) + '</div>' : ''}
                 <div class="research-result-actions">
                     ${r.source_page ? '<a href="' + r.source_page + '" target="_blank" class="research-link">View source</a>' : ''}
-                    <a href="/import-url?url=${encodeURIComponent(r.full_url)}" class="research-link">Import to Iris</a>
+                    <a href="/import-url?url=${encodeURIComponent(r.full_url)}" class="research-link">Import to Library</a>
                 </div>
             </div>
         </div>`;
@@ -482,7 +482,7 @@ function exportSelected(format) {
         const ext = {apa: 'txt', ris: 'ris', bibtex: 'bib'}[format] || 'txt';
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `iris_research.${ext}`;
+        a.download = `loom_research.${ext}`;
         a.click();
     }))
     .catch(err => alert('Export failed: ' + err.message));

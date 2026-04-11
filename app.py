@@ -1,4 +1,4 @@
-"""Image Library — Flask application."""
+"""Loom Research — Flask application."""
 import os
 import hashlib
 import requests
@@ -181,7 +181,7 @@ def web_search():
             'iiprop': 'url|extmetadata|size|mime',
             'iiurlwidth': 300,
             'format': 'json',
-        }, headers={'User-Agent': 'IrisImageLibrary/1.0 (educational; Black Studies image catalog)'},
+        }, headers={'User-Agent': 'LoomResearch/2.0 (educational; Black Studies image catalog)'},
         timeout=10)
 
         if resp.status_code == 200:
@@ -226,7 +226,7 @@ def web_search():
             'srsearch': q,
             'format': 'json',
             'srlimit': 3,
-        }, headers={'User-Agent': 'IrisImageLibrary/1.0 (educational)'},
+        }, headers={'User-Agent': 'LoomResearch/2.0 (educational)'},
         timeout=5)
 
         if resp.status_code == 200:
@@ -244,7 +244,7 @@ def web_search():
                     'explaintext': True,
                     'exsentences': 2,
                     'format': 'json',
-                }, headers={'User-Agent': 'IrisImageLibrary/1.0 (educational)'},
+                }, headers={'User-Agent': 'LoomResearch/2.0 (educational)'},
                 timeout=5)
 
                 if img_resp.status_code == 200:
@@ -325,7 +325,7 @@ def web_search():
             'fo': 'json',
             'c': 8,
             'at': 'results',
-        }, headers={'User-Agent': 'IrisImageLibrary/1.0 (educational)'},
+        }, headers={'User-Agent': 'LoomResearch/2.0 (educational)'},
         timeout=10)
 
         if resp.status_code == 200:
@@ -361,7 +361,7 @@ def web_search():
             'query': q,
             'limit': 8,
             'fields': 'title,authors,year,abstract,url,externalIds,citationCount,journal',
-        }, headers={'User-Agent': 'IrisImageLibrary/1.0 (educational)'},
+        }, headers={'User-Agent': 'LoomResearch/2.0 (educational)'},
         timeout=10)
 
         if resp.status_code == 200:

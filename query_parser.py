@@ -1,5 +1,5 @@
 """
-Iris Research Portal — Query Parser
+Loom Research — Query Parser
 
 Parses Boolean (AND/OR/NOT), phrase ("exact match"), and field
 (author:, title:, journal:) queries into a structured object that

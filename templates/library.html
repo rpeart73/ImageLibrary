@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}{% if has_search %}{{ total_count }} results: {{ search }} — Iris{% else %}Iris — Image and Media Library{% endif %}{% endblock %}
+{% block title %}{% if has_search %}{{ total_count }} results: {{ search }} — Loom Research{% else %}Loom Research — Library{% endif %}{% endblock %}
 {% block content %}
 
 <div class="library-hero">
-    <h1 class="library-title">Iris</h1>
+    <h1 class="library-title">Loom Research</h1>
     <p class="library-subtitle">Image and Media Library for Black Studies</p>
     <form class="library-search-form" action="{{ url_for('library') }}" method="get" id="library-search-form" onsubmit="saveSearch(); document.getElementById('search-loading').style.display='block'">
         <div class="search-bar-wrapper">

@@ -1,5 +1,5 @@
 """
-Iris — Automatic Metadata Search
+Loom Research — Automatic Metadata Search
 
 Searches Wikipedia for image metadata based on filename.
 Classifies theme, suggests tags, and determines course relevance.
@@ -109,7 +109,7 @@ def clean_filename_to_query(filename):
 
 
 WIKI_HEADERS = {
-    'User-Agent': 'IrisImageLibrary/1.0 (localhost; educational image catalog)',
+    'User-Agent': 'LoomResearch/1.0 (localhost; educational image catalog)',
 }
 
 
@@ -165,7 +165,7 @@ def search_wikipedia(query):
 
 
 def classify_theme(text):
-    """Classify text into one of Iris's 9 themes based on keyword frequency."""
+    """Classify text into one of Loom Research's themes based on keyword frequency."""
     text_lower = text.lower()
     scores = {}
     for theme, keywords in THEME_KEYWORDS.items():

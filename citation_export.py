@@ -1,5 +1,5 @@
 """
-Iris Research Portal — Citation Export
+Loom Research — Citation Export
 
 Formats search results into APA 7th, RIS (Zotero/Mendeley), and BibTeX.
 Supports single and bulk export.

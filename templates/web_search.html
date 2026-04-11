@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Web Search: {{ query }} — Iris{% endblock %}
+{% block title %}Web Search: {{ query }} — Loom Research{% endblock %}
 {% block content %}
 
 <div class="lib-search-header">
     <a href="{{ url_for('library', q=query) }}" class="back-to-library">&larr; Back to local library</a>
-    <h2 class="lib-search-title">Iris Research Portal</h2>
+    <h2 class="lib-search-title">Loom Research</h2>
     <form action="{{ url_for('web_search_page') }}" method="get" class="lib-search-bar">
         <div class="lib-search-row">
             <input type="text" name="q" value="{{ query }}" placeholder="Search images, media, and articles...">
@@ -169,7 +169,7 @@
                         ${r.description ? '<div class="lib-result-abstract">' + r.description.substring(0, 180) + (r.description.length > 180 ? '...' : '') + '</div>' : ''}
                         <div class="lib-result-actions">
                             <a href="${r.source_page}" target="_blank" class="lib-link">View source</a>
-                            <a href="/import-url?url=${encodeURIComponent(r.full_url)}" class="lib-link lib-link-primary">Import to Iris</a>
+                            <a href="/import-url?url=${encodeURIComponent(r.full_url)}" class="lib-link lib-link-primary">Import to Library</a>
                         </div>
                     </div>
                 </div>`;
@@ -336,7 +336,7 @@
         const blob = new Blob(['References\n\n' + citations.join('\n\n')], {type: 'text/plain'});
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = 'iris_citations_apa7.txt';
+        a.download = 'loom_research_citations_apa7.txt';
         a.click();
     };
 })();
