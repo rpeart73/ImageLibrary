@@ -97,7 +97,7 @@ def web_search():
         resp = requests.get('https://commons.wikimedia.org/w/api.php', params={
             'action': 'query',
             'generator': 'search',
-            'gsrsearch': f'{q} Black studies OR African American OR civil rights',
+            'gsrsearch': q,
             'gsrnamespace': 6,  # File namespace
             'gsrlimit': 12,
             'prop': 'imageinfo',
@@ -194,7 +194,7 @@ def web_search():
     # 3. Smithsonian National Museum of African American History and Culture
     try:
         resp = requests.get('https://api.si.edu/openaccess/api/v1.0/search', params={
-            'q': f'{q} african american',
+            'q': q,
             'rows': 8,
             'online_media_type': 'Images',
         }, timeout=10)
@@ -244,7 +244,7 @@ def web_search():
     try:
         resp = requests.get('https://www.loc.gov/search/', params={
             'q': q,
-            'fa': 'subject:african americans',
+            'fa': '',
             'fo': 'json',
             'c': 8,
             'at': 'results',
