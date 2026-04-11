@@ -896,6 +896,117 @@ def _search_lac(query: ParsedQuery, limit: int = 6) -> List[dict]:
     return results
 
 
+def _search_york_primo(query: ParsedQuery, limit: int = 10) -> List[dict]:
+    """York University Library via Primo VE API. No key required.
+    Searches the full York catalogue: books, journals, articles, theses, media.
+    Access to ProQuest, EBSCO, SAGE, Wiley, Springer, T&F, Oxford, Cambridge."""
+    results = []
+    try:
+        search_str = query.to_simple_query()
+        resp = _session.get(
+            'https://ocul-yor.primo.exlibrisgroup.com/primaws/rest/pub/pnxs',
+            params={
+                'q': f'any,contains,{search_str}',
+                'vid': '01OCUL_YOR:YOR_DEFAULT',
+                'inst': '01OCUL_YOR',
+                'tab': 'Everything',
+                'scope': 'MyInst_and_CI',
+                'lang': 'en',
+                'limit': limit,
+                'offset': 0,
+                'sort': 'rank',
+                'mode': 'simple',
+                'skipDelivery': 'Y',
+                'pcAvailability': 'true',
+            },
+            timeout=TIMEOUT
+        )
+
+        if resp.status_code != 200:
+            return results
+
+        data = resp.json()
+        for doc in data.get('docs', []):
+            pnx = doc.get('pnx', {})
+            display = pnx.get('display', {})
+            search_data = pnx.get('search', {})
+            links = pnx.get('links', {})
+
+            # Extract fields (Primo returns lists for most fields)
+            def first(field_dict, key, default=''):
+                val = field_dict.get(key, [default])
+                if isinstance(val, list):
+                    return val[0] if val else default
+                return val or default
+
+            title = first(display, 'title', 'Untitled')
+            creator = first(display, 'creator', '')
+            # Clean creator: remove $$Q suffix
+            if '$$Q' in creator:
+                creator = creator.split('$$Q')[0]
+
+            year = first(display, 'creationdate', 'n.d.')
+            doc_type = first(display, 'type', 'article')
+            subjects = display.get('subject', [])
+            description = first(display, 'description', '')
+            if not description:
+                description = '; '.join(subjects[:3]) if subjects else ''
+            publisher = first(display, 'publisher', '')
+            identifier = first(display, 'identifier', '')
+            mms_id = first(display, 'mms', '')
+
+            # DOI extraction
+            doi = ''
+            for ident in display.get('identifier', []):
+                if isinstance(ident, str) and '$$CDOI$$V' in ident:
+                    doi = ident.split('$$CDOI$$V')[1].split('$$')[0]
+                    break
+
+            # ISBN extraction
+            isbn = ''
+            for ident in display.get('identifier', []):
+                if isinstance(ident, str) and '$$CISBN$$V' in ident:
+                    isbn = ident.split('$$CISBN$$V')[1].split('$$')[0]
+                    break
+
+            # Build URL
+            url = ''
+            if doi:
+                url = f'https://doi.org/{doi}'
+            elif mms_id:
+                url = f'https://ocul-yor.primo.exlibrisgroup.com/discovery/fulldisplay?docid=alma{mms_id}&vid=01OCUL_YOR:YOR_DEFAULT'
+
+            # Map Primo types to our types
+            is_article = doc_type in ('article', 'journal_article', 'review')
+            content_type = 'journal-article' if is_article else doc_type
+
+            # Tags from subjects
+            tags = [s.split(' -- ')[0] for s in subjects[:5]] if subjects else []
+
+            results.append({
+                'title': title,
+                'authors': creator,
+                'year': str(year),
+                'abstract': description[:500],
+                'url': url,
+                'doi': doi,
+                'journal': publisher if is_article else '',
+                'volume': '',
+                'issue': '',
+                'pages': '',
+                'citation_count': 0,
+                'is_open_access': False,
+                'is_peer_reviewed': is_article,
+                'content_type': content_type,
+                'source': 'York University Library',
+                'tags': tags,
+                '_type': 'article',
+            })
+    except Exception:
+        pass
+    return results
+
+
 # ───────────────────────────────────────────────────────
 # Abstract Enrichment
 # ───────────────────────────────────────────────────────
@@ -1036,6 +1147,7 @@ ALL_SOURCES = {
     'internet_archive': _search_internet_archive,
     'europeana': _search_europeana,
     'lac': _search_lac,
+    'york_primo': _search_york_primo,
 }
 
 # Source display names
@@ -1054,6 +1166,7 @@ SOURCE_NAMES = {
     'internet_archive': 'Internet Archive',
     'europeana': 'Europeana',
     'lac': 'Library and Archives Canada',
+    'york_primo': 'York University Library',
 }
 
 

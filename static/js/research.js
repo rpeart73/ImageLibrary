@@ -11,7 +11,6 @@ let currentSort = 'quality';
 // External search URL generators
 const EXTERNAL_URLS = {
     // Institutional (York gives access to ProQuest, EBSCO, SAGE, Wiley, Springer, T&F, Oxford, Cambridge)
-    york_lib: q => `https://ocul-yor.primo.exlibrisgroup.com/discovery/search?query=any,contains,${encodeURIComponent(q)}&tab=Everything&search_scope=MyInst_and_CI&vid=01OCUL_YOR:YOR_DEFAULT`,
     jstor: q => `https://www.jstor.org/action/doBasicSearch?Query=${encodeURIComponent(q)}`,
     york_proquest: q => `https://www.proquest.com/advanced?query=${encodeURIComponent(q)}`,
     york_ebsco: q => `https://search.ebscohost.com/login.aspx?direct=true&bquery=${encodeURIComponent(q)}`,
@@ -39,20 +38,20 @@ const EXTERNAL_URLS = {
 // Research profiles
 const PROFILES = {
     full: {
-        api: ['openalex','core','crossref','semantic_scholar','eric','doaj','wikimedia','wikipedia','smithsonian','loc','dpla','internet_archive','europeana','lac'],
-        ext: ['york_lib','jstor','seneca_lib','gscholar','blackpast','schomburg','bec','iportal'],
+        api: ['openalex','core','crossref','semantic_scholar','eric','doaj','york_primo','wikimedia','wikipedia','smithsonian','loc','dpla','internet_archive','europeana','lac'],
+        ext: ['jstor','seneca_lib','gscholar','blackpast','schomburg','bec','iportal'],
     },
     black: {
-        api: ['openalex','core','crossref','semantic_scholar','eric','doaj','smithsonian','loc','dpla','internet_archive','wikimedia'],
-        ext: ['york_lib','jstor','blackpast','schomburg','aodl','bec','project_muse','gscholar'],
+        api: ['openalex','core','crossref','semantic_scholar','eric','doaj','york_primo','smithsonian','loc','dpla','internet_archive','wikimedia'],
+        ext: ['jstor','blackpast','schomburg','aodl','bec','project_muse','gscholar'],
     },
     indigenous: {
-        api: ['openalex','core','eric','doaj','wikimedia','loc','dpla','internet_archive','lac'],
-        ext: ['york_lib','iportal','fnigc','isumatv','ourdigitalworld','bec','gscholar','canadiana'],
+        api: ['openalex','core','eric','doaj','york_primo','wikimedia','loc','dpla','internet_archive','lac'],
+        ext: ['iportal','fnigc','isumatv','ourdigitalworld','bec','gscholar','canadiana'],
     },
     canadian: {
-        api: ['openalex','core','crossref','eric','wikimedia','loc','dpla','internet_archive','lac'],
-        ext: ['york_lib','seneca_lib','bec','iportal','statscan','canadiana','archives_ontario','ourdigitalworld'],
+        api: ['openalex','core','crossref','eric','york_primo','wikimedia','loc','dpla','internet_archive','lac'],
+        ext: ['seneca_lib','bec','iportal','statscan','canadiana','archives_ontario','ourdigitalworld'],
     },
     quick: {
         api: ['openalex','semantic_scholar'],
