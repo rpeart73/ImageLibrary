@@ -8,6 +8,41 @@ let allResults = [];
 let twoEyedResults = [];
 let currentSort = 'quality';
 
+// External search URL generators (databases without free APIs)
+const EXTERNAL_URLS = {
+    // Institutional
+    jstor: q => `https://www.jstor.org/action/doBasicSearch?Query=${encodeURIComponent(q)}`,
+    york_lib: q => `https://yorku.primo.exlibrisgroup.com/discovery/search?query=any,contains,${encodeURIComponent(q)}&tab=Everything&search_scope=MyInst_and_CI&vid=01OCUL_YOR:YOR_DEFAULT`,
+    seneca_lib: q => `https://senecapolytechnic.primo.exlibrisgroup.com/discovery/search?query=any,contains,${encodeURIComponent(q)}&tab=Everything&search_scope=MyInst_and_CI&vid=01OCUL_SEN:SEN_DEFAULT`,
+    gscholar: q => `https://scholar.google.com/scholar?q=${encodeURIComponent(q)}`,
+    // Black Studies
+    blackpast: q => `https://www.blackpast.org/?s=${encodeURIComponent(q)}`,
+    schomburg: q => `https://digitalcollections.nypl.org/search/index?utf8=%E2%9C%93&keywords=${encodeURIComponent(q)}#/?scroll=24`,
+    aodl: q => `https://www.aodl.org/search?q=${encodeURIComponent(q)}`,
+    bec: q => `https://www.bac-lac.gc.ca/eng/search/Pages/record-search.aspx?DataSource=Archives&q=${encodeURIComponent(q)}`,
+    // Indigenous
+    iportal: q => `https://iportal.usask.ca/action/search/list?q=${encodeURIComponent(q)}`,
+    fnigc: q => `https://fnigc.ca/?s=${encodeURIComponent(q)}`,
+    isumatv: q => `https://www.isuma.tv/search/node/${encodeURIComponent(q)}`,
+};
+
+// ─── Source Count ──────────────────────────────────────
+
+function updateSourceCount() {
+    const apiCount = document.querySelectorAll('.src-toggle:checked').length;
+    const extCount = document.querySelectorAll('.ext-toggle:checked').length;
+    const total = apiCount + extCount;
+
+    const label = document.getElementById('source-count-label');
+    if (label) label.textContent = total + ' source' + (total !== 1 ? 's' : '') + ' selected';
+
+    const heading = document.getElementById('empty-heading');
+    if (heading) heading.textContent = 'Search ' + total + ' database' + (total !== 1 ? 's' : '') + ' at once';
+
+    const loadingText = document.querySelector('.research-loading-text');
+    if (loadingText) loadingText.textContent = 'Searching ' + apiCount + ' databases' + (extCount ? ' + ' + extCount + ' external...' : '...');
+}
+
 // ─── Search ────────────────────────────────────────────
 
 function doSearch(event) {
@@ -19,9 +54,15 @@ function doSearch(event) {
     const course = document.getElementById('research-course').value;
     const twoEyed = document.getElementById('two-eyed-toggle').checked ? '1' : '0';
 
-    // Collect selected sources
+    // Collect selected API sources
     const sources = [...document.querySelectorAll('.src-toggle:checked')]
         .map(cb => cb.value).join(',');
+
+    // Open external sources in new tabs
+    document.querySelectorAll('.ext-toggle:checked').forEach(cb => {
+        const urlFn = EXTERNAL_URLS[cb.value];
+        if (urlFn) window.open(urlFn(q), '_blank');
+    });
 
     // Update URL without reload
     const url = new URL(window.location);
@@ -35,6 +76,10 @@ function doSearch(event) {
     document.getElementById('research-loading').style.display = 'block';
     document.getElementById('research-results-container').style.display = 'none';
 
+    const apiCount = document.querySelectorAll('.src-toggle:checked').length;
+    const extCount = document.querySelectorAll('.ext-toggle:checked').length;
+    document.querySelector('.research-loading-text').textContent =
+        'Searching ' + apiCount + ' databases' + (extCount ? ' + ' + extCount + ' external...' : '...');
     const sourcesDisplay = sources.split(',')
         .map(s => s.replace('_', ' '))
         .map(s => s.charAt(0).toUpperCase() + s.slice(1))
