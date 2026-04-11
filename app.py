@@ -17,6 +17,14 @@ from metadata_search import search_metadata, classify_from_page
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
+
+@app.teardown_appcontext
+def close_db(exception):
+    """Ensure database connections are always closed after each request."""
+    db = getattr(app, '_database', None)
+    if db is not None:
+        db.close()
+
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
 ALLOWED_EXT = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'tiff', 'bmp'}
 PROTON_IMG_BASE = '/mnt/c/Users/rpeart/Proton Drive/raymondpeart/My files/EXT/Image_Library'
@@ -68,9 +76,61 @@ def autocomplete():
 def web_search_page():
     """Dedicated web search results page. Opens in a new window."""
     q = request.args.get('q', '').strip()
+    course = request.args.get('course', '').strip()
     if not q:
         return redirect(url_for('library'))
-    return render_template('web_search.html', query=q)
+    return render_template('web_search.html', query=q, course=course)
+
+
+BRAIN_IDS = {
+    'seneca': 'df72757b-0d10-469e-a671-713bfbe6b860',
+    'york': '4b5d4af0-7a24-425d-829d-587d1951469c',
+    'loom': '3a368b36-89ea-41f2-97de-4dcd67503fb1',
+}
+
+@app.route('/api/brain-assess', methods=['POST'])
+def brain_assess():
+    """Ask the Seneca Brain to assess course relevance of web search results.
+    Accepts: {query, course, results: [{title, description, source}]}
+    Returns: {assessments: [{title, relevance, fit, reasoning}]}
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data'}), 400
+
+    query = data.get('query', '')
+    course = data.get('course', '')
+    results_to_assess = data.get('results', [])[:8]
+
+    if not results_to_assess:
+        return jsonify({'assessments': []})
+
+    # Build a prompt for the brain
+    items_text = '\n'.join([
+        f"- {r.get('title', 'Untitled')}: {r.get('description', '')[:100]}" for r in results_to_assess
+    ])
+
+    brain_prompt = (
+        f"I found these images/media while searching for '{query}'"
+        f"{' for course ' + course if course else ''}. "
+        f"For each item, rate its relevance to the course curriculum on a scale of "
+        f"strong/moderate/weak and explain in one sentence why.\n\n{items_text}"
+    )
+
+    try:
+        # Query Seneca Brain via NotebookLM MCP (using subprocess since we can't call MCP from Flask directly)
+        import subprocess
+        result = subprocess.run(
+            [os.path.expanduser('~/.local/bin/nlm'), 'notebook', 'query',
+             BRAIN_IDS['seneca'], brain_prompt],
+            capture_output=True, text=True, timeout=30
+        )
+        if result.returncode == 0:
+            return jsonify({'assessment': result.stdout.strip(), 'query': query, 'course': course})
+        else:
+            return jsonify({'assessment': 'Brain query failed. Results shown without relevance scoring.', 'error': result.stderr[:200]})
+    except Exception as e:
+        return jsonify({'assessment': f'Brain unavailable: {str(e)[:100]}. Results shown without relevance scoring.'})
 
 
 _web_search_last = {}

@@ -564,6 +564,19 @@ a:hover { color: var(--accent-hover); }
 /* Quick course buttons */
 .quick-courses { max-width: 1200px; margin: 32px auto 0; padding: 0 24px; }
 .course-buttons { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.course-btn-group { display: flex; gap: 0; }
+.course-btn-group .course-btn { flex: 1; border-radius: var(--radius) 0 0 var(--radius); }
+.course-web-btn {
+    padding: 8px 12px;
+    background: var(--accent-light);
+    border: 1px solid var(--border);
+    border-left: none;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.15s;
+}
+.course-web-btn:hover { background: var(--accent); color: white; }
 .course-btn {
     display: block;
     padding: 12px 14px;
@@ -892,6 +905,31 @@ a:hover { color: var(--accent-hover); }
     padding: 24px;
 }
 .web-page-results .web-results-grid { display: flex; flex-direction: column; gap: 12px; }
+.course-select {
+    padding: 8px;
+    font-size: 14px;
+    font-family: var(--font);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+}
+.brain-trigger { margin: 12px 0; }
+.brain-panel {
+    max-width: 900px;
+    margin: 24px auto;
+    padding: 0 24px;
+}
+.brain-header { margin-bottom: 12px; }
+.brain-desc { font-size: 13px; color: var(--text-muted); }
+.brain-response {
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 16px;
+    background: var(--accent-light);
+    border-radius: var(--radius);
+    border-left: 3px solid var(--accent);
+}
+.brain-course { font-size: 13px; color: var(--text-muted); margin-top: 8px; }
 .zero-results-web { margin: 24px 0; }
 
 /* Keyboard hints */

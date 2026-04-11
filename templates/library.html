@@ -77,11 +77,26 @@
     <div class="quick-courses">
         <h3 class="section-heading">Search by Course</h3>
         <div class="course-buttons">
-            <a href="{{ url_for('library', course='BFS142') }}" class="course-btn">BFS142<span>Race, Resistance and the Black Athlete</span></a>
-            <a href="{{ url_for('library', course='BFS211') }}" class="course-btn">BFS211<span>Black Music and Social Liberation</span></a>
-            <a href="{{ url_for('library', course='BFS218') }}" class="course-btn">BFS218<span>Techno-Racism</span></a>
-            <a href="{{ url_for('library', course='BFS220') }}" class="course-btn">BFS220<span>Black Perspectives in Popular Culture</span></a>
-            <a href="{{ url_for('library', course='SOC122') }}" class="course-btn">SOC122<span>Intro to Social Sciences</span></a>
+            <div class="course-btn-group">
+                <a href="{{ url_for('library', course='BFS142') }}" class="course-btn">BFS142<span>Race, Resistance and the Black Athlete</span></a>
+                <button type="button" class="course-web-btn" onclick="window.open('/web-search?q=Black+athlete+race+resistance+sport&course=BFS142', '_blank')" title="Find new sources">&#x1F50D;</button>
+            </div>
+            <div class="course-btn-group">
+                <a href="{{ url_for('library', course='BFS211') }}" class="course-btn">BFS211<span>Black Music and Social Liberation</span></a>
+                <button type="button" class="course-web-btn" onclick="window.open('/web-search?q=Black+music+jazz+blues+soul+liberation&course=BFS211', '_blank')" title="Find new sources">&#x1F50D;</button>
+            </div>
+            <div class="course-btn-group">
+                <a href="{{ url_for('library', course='BFS218') }}" class="course-btn">BFS218<span>Techno-Racism</span></a>
+                <button type="button" class="course-web-btn" onclick="window.open('/web-search?q=algorithmic+bias+surveillance+facial+recognition+technology+racism&course=BFS218', '_blank')" title="Find new sources">&#x1F50D;</button>
+            </div>
+            <div class="course-btn-group">
+                <a href="{{ url_for('library', course='BFS220') }}" class="course-btn">BFS220<span>Black Perspectives in Popular Culture</span></a>
+                <button type="button" class="course-web-btn" onclick="window.open('/web-search?q=Black+popular+culture+media+representation+film+television&course=BFS220', '_blank')" title="Find new sources">&#x1F50D;</button>
+            </div>
+            <div class="course-btn-group">
+                <a href="{{ url_for('library', course='SOC122') }}" class="course-btn">SOC122<span>Intro to Social Sciences</span></a>
+                <button type="button" class="course-web-btn" onclick="window.open('/web-search?q=sociology+Indigenous+knowledge+social+inequality+community&course=SOC122', '_blank')" title="Find new sources">&#x1F50D;</button>
+            </div>
         </div>
     </div>
 

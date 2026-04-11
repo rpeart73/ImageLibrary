@@ -7,6 +7,14 @@
     <p class="web-research-desc">Searching Wikimedia Commons, Wikipedia, Smithsonian NMAAHC, and Library of Congress</p>
     <form action="{{ url_for('web_search_page') }}" method="get" class="web-search-again">
         <input type="text" name="q" value="{{ query }}" placeholder="Search the web...">
+        <select name="course" class="course-select">
+            <option value="">Any course</option>
+            <option value="BFS142" {{ 'selected' if course == 'BFS142' }}>BFS142</option>
+            <option value="BFS211" {{ 'selected' if course == 'BFS211' }}>BFS211</option>
+            <option value="BFS218" {{ 'selected' if course == 'BFS218' }}>BFS218</option>
+            <option value="BFS220" {{ 'selected' if course == 'BFS220' }}>BFS220</option>
+            <option value="SOC122" {{ 'selected' if course == 'SOC122' }}>SOC122</option>
+        </select>
         <button type="submit" class="btn btn-primary">Search</button>
     </form>
 </div>
@@ -15,11 +23,21 @@
     <div class="web-loading" id="web-loading">Searching institutional collections...</div>
 </div>
 
+<div id="brain-panel" class="brain-panel" style="display:none">
+    <div class="brain-header">
+        <h3 class="section-heading">Seneca Brain Assessment</h3>
+        <p class="brain-desc">Curriculum-aware relevance scoring from the Seneca Brain</p>
+    </div>
+    <div id="brain-assessment" class="brain-assessment"></div>
+</div>
+
 <script>
 (function() {
     const query = {{ query|tojson }};
+    const course = {{ (course or '')|tojson }};
     const resultsDiv = document.getElementById('web-results');
     const loading = document.getElementById('web-loading');
+    let searchResults = [];
 
     fetch('/api/web-search?q=' + encodeURIComponent(query))
         .then(r => r.json())
@@ -29,11 +47,16 @@
                 resultsDiv.innerHTML = '<div class="web-no-results"><p>No results found for "' + query + '". Try different terms.</p></div>';
                 return;
             }
+            searchResults = data.results;
             let html = '<p class="web-sources">' + data.results.length + ' results from ' + (data.sources || []).join(', ') + '</p>';
+
+            // Brain assess button
+            html += '<div class="brain-trigger"><button type="button" class="btn btn-secondary btn-sm" onclick="assessWithBrain()">Ask Seneca Brain to assess relevance</button></div>';
+
             html += '<div class="web-results-grid">';
-            data.results.forEach(r => {
+            data.results.forEach((r, i) => {
                 html += `
-                    <div class="web-result-card">
+                    <div class="web-result-card" id="web-result-${i}">
                         <img src="${r.thumb_url}" alt="${r.title}" class="web-thumb" loading="lazy" onerror="this.parentElement.classList.add('no-thumb')">
                         <div class="web-result-info">
                             <div class="web-result-title">${r.title}</div>
@@ -53,6 +76,56 @@
             loading.style.display = 'none';
             resultsDiv.innerHTML = '<div class="web-no-results"><p>Search failed: ' + err.message + '</p></div>';
         });
+
+    // Brain assessment
+    window.assessWithBrain = function() {
+        if (!searchResults.length) return;
+        const btn = document.querySelector('.brain-trigger button');
+        btn.disabled = true;
+        btn.textContent = 'Asking Seneca Brain...';
+
+        const panel = document.getElementById('brain-panel');
+        const assessDiv = document.getElementById('brain-assessment');
+        panel.style.display = 'block';
+        assessDiv.innerHTML = '<p class="web-loading">Querying Seneca Brain for curriculum relevance...</p>';
+
+        fetch('/api/brain-assess', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                query: query,
+                course: course,
+                results: searchResults.slice(0, 8).map(r => ({
+                    title: r.title,
+                    description: (r.description || '').substring(0, 150),
+                    source: r.source
+                }))
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.textContent = 'Reassess';
+            if (data.assessment) {
+                // Format the brain's response
+                const formatted = data.assessment
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\n- /g, '\n<br>• ')
+                    .replace(/\n/g, '<br>');
+                assessDiv.innerHTML = `<div class="brain-response">${formatted}</div>`;
+                if (data.course) {
+                    assessDiv.innerHTML += `<p class="brain-course">Assessed for: <strong>${data.course}</strong></p>`;
+                }
+            } else {
+                assessDiv.innerHTML = '<p>Brain assessment unavailable.</p>';
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.textContent = 'Ask Seneca Brain to assess relevance';
+            assessDiv.innerHTML = '<p>Brain query failed: ' + err.message + '</p>';
+        });
+    };
 })();
 </script>
 
