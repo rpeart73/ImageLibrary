@@ -160,6 +160,11 @@
             <label><input type="checkbox" class="type-filter" value="article" checked onchange="filterResults()"> Articles <span class="sidebar-count" id="count-articles">0</span></label>
             <label><input type="checkbox" class="type-filter" value="image" checked onchange="filterResults()"> Images <span class="sidebar-count" id="count-images">0</span></label>
 
+            <h4>Quality</h4>
+            <label><input type="checkbox" id="peer-reviewed-filter" onchange="filterResults()"> Peer-reviewed only <span class="sidebar-count" id="count-peer-reviewed">0</span></label>
+            <label><input type="checkbox" id="open-access-filter" onchange="filterResults()"> Open access only <span class="sidebar-count" id="count-open-access">0</span></label>
+            <label><input type="checkbox" id="verified-filter" onchange="filterResults()"> Verified only</label>
+
             <div id="source-facets"></div>
 
             <h4>Actions</h4>
@@ -212,6 +217,18 @@
             </div>
 
             <!-- Reading list panel -->
+            <!-- Document Reader -->
+            <div id="reader-panel" class="reader-panel" style="display:none">
+                <div class="reader-header">
+                    <h3 id="reader-title"></h3>
+                    <div class="reader-actions">
+                        <a id="reader-source-link" href="#" target="_blank" class="research-link">Open source</a>
+                        <span class="research-link" style="cursor:pointer" onclick="closeReader()">Close</span>
+                    </div>
+                </div>
+                <div id="reader-content" class="reader-content"></div>
+            </div>
+
             <div id="reading-list-panel" class="reading-list-panel" style="display:none">
                 <h3>Reading List</h3>
                 <div id="reading-list-items"></div>

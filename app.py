@@ -552,7 +552,6 @@ def get_facet_counts(db, where_clause='', params=None):
     }
 
 
-@app.route('/')
 @app.route('/library')
 def library():
     db = get_db()
@@ -1371,6 +1370,55 @@ def api_stats():
 # Research Portal Routes
 # ═══════════════════════════════════════════════════════
 
+
+@app.route('/api/preview')
+def api_preview():
+    """Proxy-fetch a URL and return readable text for the document viewer.
+    Anti-hallucination: returns ONLY content found at the URL. Never generates."""
+    url = request.args.get('url', '').strip()
+    if not url or not url.startswith('http'):
+        return jsonify({'error': 'Invalid URL'}), 400
+
+    try:
+        from bs4 import BeautifulSoup
+        resp = requests.get(url, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0',
+            'Accept': 'text/html,*/*',
+        }, timeout=15)
+
+        content_type = resp.headers.get('content-type', '')
+
+        if 'pdf' in content_type or url.lower().endswith('.pdf'):
+            return jsonify({'type': 'pdf', 'url': url})
+
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        for tag in soup(['script', 'style', 'nav', 'footer', 'header', 'aside']):
+            tag.decompose()
+
+        title = ''
+        og_title = soup.find('meta', property='og:title')
+        if og_title and og_title.get('content'):
+            title = og_title['content']
+        elif soup.title:
+            title = soup.title.string or ''
+
+        article = soup.find('article') or soup.find('main') or soup.find(class_=re.compile(r'article|content|body|entry'))
+        if article:
+            paragraphs = [p.get_text(strip=True) for p in article.find_all('p') if len(p.get_text(strip=True)) > 30]
+        else:
+            paragraphs = [p.get_text(strip=True) for p in soup.find_all('p') if len(p.get_text(strip=True)) > 30]
+
+        text = '\n\n'.join(paragraphs[:50])
+        if len(text) < 100:
+            return jsonify({'type': 'minimal', 'title': title,
+                            'text': 'Preview unavailable. Open the full text link to read this source.', 'url': url})
+
+        return jsonify({'type': 'article', 'title': title, 'text': text,
+                        'paragraphs': len(paragraphs), 'url': url, 'source_verified': True})
+    except Exception as e:
+        return jsonify({'type': 'error', 'error': str(e)[:200], 'url': url})
+
+@app.route('/')
 @app.route('/research')
 def research():
     """Research portal page. Replaces the basic web search."""

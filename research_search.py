@@ -17,6 +17,7 @@ from typing import List, Optional
 from urllib.parse import quote as urlquote
 
 from query_parser import ParsedQuery
+from bs4 import BeautifulSoup
 
 # Shared session for connection pooling
 _session = requests.Session()
@@ -896,6 +897,126 @@ def _search_lac(query: ParsedQuery, limit: int = 6) -> List[dict]:
 
 
 # ───────────────────────────────────────────────────────
+# Abstract Enrichment
+# ───────────────────────────────────────────────────────
+
+def _fetch_abstract(url: str) -> str:
+    """Fetch an abstract from a URL by scraping meta tags and first paragraphs.
+    Anti-hallucination: returns ONLY text found on the page. Never generates."""
+    if not url:
+        return ''
+    try:
+        resp = _session.get(url, timeout=8, headers={
+            'Accept': 'text/html,*/*',
+        })
+        if resp.status_code != 200:
+            return ''
+        soup = BeautifulSoup(resp.text, 'html.parser')
+
+        # Priority 1: og:description
+        og = soup.find('meta', property='og:description')
+        if og and og.get('content') and len(og['content'].strip()) > 50:
+            return og['content'].strip()[:500]
+
+        # Priority 2: meta description
+        meta = soup.find('meta', attrs={'name': 'description'})
+        if meta and meta.get('content') and len(meta['content'].strip()) > 50:
+            return meta['content'].strip()[:500]
+
+        # Priority 3: DC.description (academic sites)
+        dc = soup.find('meta', attrs={'name': 'DC.description'})
+        if dc and dc.get('content') and len(dc['content'].strip()) > 50:
+            return dc['content'].strip()[:500]
+
+        # Priority 4: first substantial <p> tag
+        for p in soup.find_all('p'):
+            text = p.get_text(strip=True)
+            if len(text) > 80:
+                return text[:500]
+
+        return ''
+    except Exception:
+        return ''
+
+
+def enrich_abstracts(results: list, max_fetches: int = 10) -> list:
+    """Fetch abstracts for results that don't have one.
+    Runs concurrently. Limited to max_fetches to keep response fast.
+    Anti-hallucination: only uses text extracted from actual pages."""
+    needs_abstract = [(i, r) for i, r in enumerate(results)
+                      if not r.get('abstract') and (r.get('url') or r.get('source_page'))]
+
+    if not needs_abstract:
+        return results
+
+    # Only fetch for the first N to keep things fast
+    to_fetch = needs_abstract[:max_fetches]
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = {}
+        for idx, r in to_fetch:
+            url = r.get('url') or r.get('source_page', '')
+            future = executor.submit(_fetch_abstract, url)
+            futures[future] = idx
+
+        for future in as_completed(futures):
+            idx = futures[future]
+            try:
+                abstract = future.result()
+                if abstract:
+                    results[idx]['abstract'] = abstract
+                    results[idx]['abstract_source'] = 'enriched'
+            except Exception:
+                pass
+
+    return results
+
+
+# ───────────────────────────────────────────────────────
+# Anti-Hallucination Verification
+# ───────────────────────────────────────────────────────
+
+def verify_result(result: dict) -> dict:
+    """Verify a result's data integrity. Tag any suspect fields.
+    Anti-hallucination: flag results with missing critical data."""
+    warnings = []
+
+    # Title must exist and not be placeholder
+    title = result.get('title', '')
+    if not title or title in ('Untitled', 'Unknown', ''):
+        warnings.append('missing_title')
+
+    # Authors check
+    authors = result.get('authors', '')
+    if not authors or authors in ('Unknown', ''):
+        warnings.append('missing_authors')
+
+    # Year validation
+    year = result.get('year', '')
+    if year and year != 'n.d.':
+        try:
+            y = int(year)
+            if y < 1800 or y > 2027:
+                warnings.append('suspect_year')
+        except (ValueError, TypeError):
+            warnings.append('invalid_year')
+
+    # URL validation (must start with http)
+    url = result.get('url', '')
+    if url and not url.startswith('http'):
+        warnings.append('invalid_url')
+
+    # DOI format check
+    doi = result.get('doi', '')
+    if doi and not re.match(r'^10\.\d{4,}/', doi):
+        warnings.append('suspect_doi')
+
+    result['_warnings'] = warnings
+    result['_verified'] = len(warnings) == 0
+    return result
+
+
+# ───────────────────────────────────────────────────────
 # Orchestrator
 # ───────────────────────────────────────────────────────
 
@@ -991,8 +1112,14 @@ def search_all(query: ParsedQuery,
     for r in all_results:
         r['quality_score'] = compute_quality_score(r)
 
+    # Anti-hallucination: verify every result
+    all_results = [verify_result(r) for r in all_results]
+
     # Deduplicate
     all_results = deduplicate(all_results)
+
+    # Enrich abstracts for results missing them
+    all_results = enrich_abstracts(all_results, max_fetches=12)
 
     # Sort: quality score descending, then citation count descending
     all_results.sort(key=lambda r: (r.get('quality_score', 0), r.get('citation_count', 0)), reverse=True)
@@ -1001,6 +1128,9 @@ def search_all(query: ParsedQuery,
     articles = [r for r in all_results if r.get('_type') == 'article']
     images = [r for r in all_results if r.get('_type') == 'image']
 
+    # Peer-reviewed count
+    peer_reviewed_count = sum(1 for r in articles if r.get('is_peer_reviewed'))
+
     return {
         'results': all_results,
         'articles': articles,
@@ -1008,5 +1138,6 @@ def search_all(query: ParsedQuery,
         'source_counts': source_counts,
         'sources_searched': list(adapters.keys()),
         'total': len(all_results),
+        'peer_reviewed_count': peer_reviewed_count,
         'query': query.raw,
     }

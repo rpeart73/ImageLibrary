@@ -6,17 +6,17 @@
     <title>{% block title %}Iris{% endblock %}</title>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <meta name="description" content="Iris: Image and Media Library for Black Studies. Curriculum-aware search with NotebookLM brain integration.">
+    <meta name="description" content="Iris: Curriculum-aware research intelligence. 26 databases, Two-Eyed Seeing, citation export, Zotero pipeline, image library.">
 </head>
 <body>
     <nav class="nav">
-        <a href="{{ url_for('library') }}" class="nav-brand">Iris — Image Library</a>
+        <a href="{{ url_for('research') }}" class="nav-brand">Iris</a>
         <div class="nav-links">
-            <a href="{{ url_for('library') }}" class="{{ 'active' if request.endpoint == 'library' }}">Home</a>
+            <a href="{{ url_for('research') }}" class="{{ 'active' if request.endpoint == 'research' }}">Research</a>
+            <a href="{{ url_for('library') }}" class="{{ 'active' if request.endpoint == 'library' }}">Library</a>
             <a href="{{ url_for('browse') }}" class="{{ 'active' if request.endpoint == 'browse' }}">Browse</a>
             <a href="{{ url_for('themes') }}" class="{{ 'active' if request.endpoint == 'themes' }}">Themes</a>
             <a href="{{ url_for('media_list') }}" class="{{ 'active' if request.endpoint in ('media_list', 'media_detail') }}">Media</a>
-            <a href="{{ url_for('research') }}" class="{{ 'active' if request.endpoint == 'research' }}">Research</a>
             <a href="{{ url_for('upload') }}" class="{{ 'active' if request.endpoint == 'upload' }}">Upload</a>
             <a href="{{ url_for('import_url') }}" class="{{ 'active' if request.endpoint == 'import_url' }}">Import URL</a>
         </div>

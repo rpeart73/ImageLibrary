@@ -227,6 +227,10 @@ function doSearch(event) {
                 articles.length + ' articles, ' + images.length + ' images';
             document.getElementById('count-articles').textContent = articles.length;
             document.getElementById('count-images').textContent = images.length;
+            document.getElementById('count-peer-reviewed').textContent =
+                allResults.filter(r => r.is_peer_reviewed).length;
+            document.getElementById('count-open-access').textContent =
+                allResults.filter(r => r.is_open_access).length;
 
             // Sources searched
             const searched = data.sources_searched || [];
@@ -356,6 +360,7 @@ function renderCard(r, isTwoEyed) {
                 ${r.url ? '<a href="' + r.url + '" target="_blank" class="research-link">Full text</a>' : ''}
                 ${r.doi ? '<a href="https://doi.org/' + r.doi + '" target="_blank" class="research-link">DOI</a>' : ''}
                 ${r.pdf_url ? '<a href="' + r.pdf_url + '" target="_blank" class="research-link">PDF</a>' : ''}
+                ${r.url ? '<a href="#" class="research-link" style="font-weight:600" onclick="openReader('+r._idx+'); return false;">Read</a>' : ''}
                 <a href="#" class="research-link" style="color:var(--accent);font-weight:600" onclick="pushToZotero(${r._idx}); return false;">Push to Zotero</a>
                 <a href="#" class="research-link" onclick="addOneToReadingList(${r._idx}); return false;">Save</a>
             </div>
@@ -375,13 +380,20 @@ function esc(str) {
 function filterResults() {
     const typeFilters = [...document.querySelectorAll('.type-filter:checked')].map(cb => cb.value);
     const sourceFilters = [...document.querySelectorAll('.source-filter:checked')].map(cb => cb.value);
+    const peerOnly = document.getElementById('peer-reviewed-filter').checked;
+    const oaOnly = document.getElementById('open-access-filter').checked;
+    const verifiedOnly = document.getElementById('verified-filter').checked;
 
-    const filtered = allResults.filter(r =>
-        typeFilters.includes(r._type) && sourceFilters.includes(r.source)
-    );
+    const filtered = allResults.filter(r => {
+        if (!typeFilters.includes(r._type)) return false;
+        if (!sourceFilters.includes(r.source)) return false;
+        if (peerOnly && !r.is_peer_reviewed) return false;
+        if (oaOnly && !r.is_open_access) return false;
+        if (verifiedOnly && !r._verified) return false;
+        return true;
+    });
     renderResults(filtered);
 
-    // Update counts
     const articles = filtered.filter(r => r._type === 'article').length;
     const images = filtered.filter(r => r._type === 'image').length;
     document.getElementById('results-count').textContent = filtered.length + ' results';
@@ -474,6 +486,51 @@ function exportSelected(format) {
         a.click();
     }))
     .catch(err => alert('Export failed: ' + err.message));
+}
+
+// ─── Document Reader ───────────────────────────────────
+
+function openReader(idx) {
+    const r = getAllResults().find(x => x._idx === idx);
+    if (!r || !r.url) return;
+
+    const panel = document.getElementById('reader-panel');
+    const content = document.getElementById('reader-content');
+    const titleEl = document.getElementById('reader-title');
+    const linkEl = document.getElementById('reader-source-link');
+
+    titleEl.textContent = r.title || 'Loading...';
+    linkEl.href = r.url;
+    content.innerHTML = '<div class="reader-loading">Loading preview...</div>';
+    panel.style.display = 'block';
+    panel.scrollIntoView({behavior: 'smooth'});
+
+    fetch('/api/preview?url=' + encodeURIComponent(r.url))
+        .then(resp => resp.json())
+        .then(data => {
+            titleEl.textContent = data.title || r.title || 'Document';
+
+            if (data.type === 'pdf') {
+                content.innerHTML = '<iframe src="' + esc(data.url) + '"></iframe>';
+            } else if (data.type === 'article') {
+                const paragraphs = data.text.split('\n\n').map(p => '<p>' + esc(p) + '</p>').join('');
+                content.innerHTML = paragraphs +
+                    '<p style="font-size:12px;color:var(--text-muted);margin-top:20px;border-top:1px solid var(--border);padding-top:12px">' +
+                    'Source: <a href="' + esc(data.url) + '" target="_blank">' + esc(data.url) + '</a>' +
+                    (data.source_verified ? ' (content verified from source)' : '') + '</p>';
+            } else {
+                content.innerHTML = '<p>' + esc(data.text || 'Preview unavailable.') + '</p>' +
+                    '<p><a href="' + esc(r.url) + '" target="_blank">Open full text in new tab</a></p>';
+            }
+        })
+        .catch(err => {
+            content.innerHTML = '<p>Failed to load preview: ' + esc(err.message) + '</p>' +
+                '<p><a href="' + esc(r.url) + '" target="_blank">Open in new tab instead</a></p>';
+        });
+}
+
+function closeReader() {
+    document.getElementById('reader-panel').style.display = 'none';
 }
 
 // ─── Push to Zotero (single item RIS download) ────────
