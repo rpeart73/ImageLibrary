@@ -17,7 +17,6 @@ const EXTERNAL_URLS = {
     seneca_lib: q => `https://seneca.primo.exlibrisgroup.com/discovery/search?query=any,contains,${encodeURIComponent(q)}&tab=Everything&search_scope=MyInst_and_CI&vid=01SENC_INST:01SENC_NDE`,
     // General reference
     gscholar: q => `https://scholar.google.com/scholar?q=${encodeURIComponent(q)}`,
-    britannica: q => `https://www.britannica.com/search?query=${encodeURIComponent(q)}`,
     // Black Studies
     blackpast: q => `https://www.blackpast.org/?s=${encodeURIComponent(q)}`,
     schomburg: q => `https://digitalcollections.nypl.org/search/index?utf8=%E2%9C%93&keywords=${encodeURIComponent(q)}#/?scroll=24`,
@@ -38,19 +37,19 @@ const EXTERNAL_URLS = {
 // Research profiles
 const PROFILES = {
     full: {
-        api: ['openalex','core','crossref','semantic_scholar','eric','doaj','york_primo','wikimedia','wikipedia','smithsonian','loc','dpla','internet_archive','europeana','lac'],
+        api: ['openalex','core','crossref','semantic_scholar','eric','doaj','york_primo','britannica','wikimedia','wikipedia','smithsonian','loc','dpla','internet_archive','europeana','lac'],
         ext: ['jstor','seneca_lib','gscholar','blackpast','schomburg','bec','iportal'],
     },
     black: {
-        api: ['openalex','core','crossref','semantic_scholar','eric','doaj','york_primo','smithsonian','loc','dpla','internet_archive','wikimedia'],
+        api: ['openalex','core','crossref','semantic_scholar','eric','doaj','york_primo','britannica','smithsonian','loc','dpla','internet_archive','wikimedia'],
         ext: ['jstor','blackpast','schomburg','aodl','bec','project_muse','gscholar'],
     },
     indigenous: {
-        api: ['openalex','core','eric','doaj','york_primo','wikimedia','loc','dpla','internet_archive','lac'],
+        api: ['openalex','core','eric','doaj','york_primo','britannica','wikimedia','loc','dpla','internet_archive','lac'],
         ext: ['iportal','fnigc','isumatv','ourdigitalworld','bec','gscholar','canadiana'],
     },
     canadian: {
-        api: ['openalex','core','crossref','eric','york_primo','wikimedia','loc','dpla','internet_archive','lac'],
+        api: ['openalex','core','crossref','eric','york_primo','britannica','wikimedia','loc','dpla','internet_archive','lac'],
         ext: ['seneca_lib','bec','iportal','statscan','canadiana','archives_ontario','ourdigitalworld'],
     },
     quick: {

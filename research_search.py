@@ -896,6 +896,80 @@ def _search_lac(query: ParsedQuery, limit: int = 6) -> List[dict]:
     return results
 
 
+def _search_britannica(query: ParsedQuery, limit: int = 10) -> List[dict]:
+    """Britannica: authoritative encyclopedia articles. Scraped from search results."""
+    results = []
+    try:
+        search_str = query.to_simple_query()
+        resp = _session.get('https://www.britannica.com/search', params={
+            'query': search_str,
+        }, timeout=TIMEOUT)
+
+        if resp.status_code != 200:
+            return results
+
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        seen_urls = set()
+
+        for li in soup.find_all(['li', 'div'], class_=True):
+            classes = ' '.join(li.get('class', []))
+            if 'result' not in classes.lower() and 'search' not in classes.lower():
+                continue
+
+            a = li.find('a', href=True)
+            if not a:
+                continue
+            href = a['href']
+            if not any(x in href for x in ['/topic/', '/biography/', '/place/', '/science/', '/event/', '/art/', '/technology/']):
+                continue
+
+            url = f'https://www.britannica.com{href}' if href.startswith('/') else href
+            if url in seen_urls:
+                continue
+            seen_urls.add(url)
+
+            title = a.get_text(strip=True)
+            # Clean title: remove " - Britannica" suffix
+            title = re.sub(r'\s*[-|]\s*Britannica.*$', '', title)
+
+            desc_el = li.find(['p', 'span', 'div'], class_=True)
+            desc = desc_el.get_text(strip=True)[:500] if desc_el else ''
+
+            # Determine type from URL path
+            content_type = 'encyclopedia'
+            if '/biography/' in href:
+                content_type = 'biography'
+            elif '/event/' in href:
+                content_type = 'historical-event'
+
+            results.append({
+                'title': title,
+                'authors': 'Encyclopaedia Britannica',
+                'year': '',
+                'abstract': desc,
+                'url': url,
+                'doi': '',
+                'journal': 'Encyclopaedia Britannica',
+                'volume': '',
+                'issue': '',
+                'pages': '',
+                'citation_count': 0,
+                'is_open_access': False,
+                'is_peer_reviewed': True,  # Britannica is peer-reviewed / expert-authored
+                'content_type': content_type,
+                'source': 'Britannica',
+                'tags': [],
+                '_type': 'article',
+            })
+
+            if len(results) >= limit:
+                break
+
+    except Exception:
+        pass
+    return results
+
+
 def _search_york_primo(query: ParsedQuery, limit: int = 10) -> List[dict]:
     """York University Library via Primo VE API. No key required.
     Searches the full York catalogue: books, journals, articles, theses, media.
@@ -1148,6 +1222,7 @@ ALL_SOURCES = {
     'europeana': _search_europeana,
     'lac': _search_lac,
     'york_primo': _search_york_primo,
+    'britannica': _search_britannica,
 }
 
 # Source display names
@@ -1167,6 +1242,7 @@ SOURCE_NAMES = {
     'europeana': 'Europeana',
     'lac': 'Library and Archives Canada',
     'york_primo': 'York University Library',
+    'britannica': 'Britannica',
 }
 
 
