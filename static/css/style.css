@@ -863,6 +863,35 @@ a:hover { color: var(--accent-hover); }
 .web-result-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .web-license { font-size: 11px; color: var(--text-muted); }
 .web-no-results { font-size: 14px; color: var(--text-muted); padding: 16px 0; }
+
+/* Web search page */
+.web-page-header {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 32px 24px 24px;
+    border-bottom: 1px solid var(--border);
+}
+.web-page-header h2 { font-size: 22px; margin: 0 0 4px; }
+.web-search-again {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    max-width: 500px;
+}
+.web-search-again input {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 14px;
+    font-family: var(--font);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+.web-page-results {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px;
+}
+.web-page-results .web-results-grid { display: flex; flex-direction: column; gap: 12px; }
 .zero-results-web { margin: 24px 0; }
 
 /* Keyboard hints */

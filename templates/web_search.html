@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Web Search: {{ query }} — Iris{% endblock %}
+{% block content %}
+
+<div class="web-page-header">
+    <h2>Web Search: "{{ query }}"</h2>
+    <p class="web-research-desc">Searching Wikimedia Commons, Wikipedia, Smithsonian NMAAHC, and Library of Congress</p>
+    <form action="{{ url_for('web_search_page') }}" method="get" class="web-search-again">
+        <input type="text" name="q" value="{{ query }}" placeholder="Search the web...">
+        <button type="submit" class="btn btn-primary">Search</button>
+    </form>
+</div>
+
+<div id="web-results" class="web-page-results">
+    <div class="web-loading" id="web-loading">Searching institutional collections...</div>
+</div>
+
+<script>
+(function() {
+    const query = {{ query|tojson }};
+    const resultsDiv = document.getElementById('web-results');
+    const loading = document.getElementById('web-loading');
+
+    fetch('/api/web-search?q=' + encodeURIComponent(query))
+        .then(r => r.json())
+        .then(data => {
+            loading.style.display = 'none';
+            if (!data.results || !data.results.length) {
+                resultsDiv.innerHTML = '<div class="web-no-results"><p>No results found for "' + query + '". Try different terms.</p></div>';
+                return;
+            }
+            let html = '<p class="web-sources">' + data.results.length + ' results from ' + (data.sources || []).join(', ') + '</p>';
+            html += '<div class="web-results-grid">';
+            data.results.forEach(r => {
+                html += `
+                    <div class="web-result-card">
+                        <img src="${r.thumb_url}" alt="${r.title}" class="web-thumb" loading="lazy" onerror="this.parentElement.classList.add('no-thumb')">
+                        <div class="web-result-info">
+                            <div class="web-result-title">${r.title}</div>
+                            <div class="web-result-meta">${r.creator || 'Unknown'} | ${r.source} | ${r.license}</div>
+                            ${r.description ? '<div class="web-result-desc">' + r.description.substring(0, 200) + (r.description.length > 200 ? '...' : '') + '</div>' : ''}
+                            <div class="web-result-actions">
+                                <a href="/import-url?url=${encodeURIComponent(r.full_url)}" class="btn btn-primary btn-sm">Import to Iris</a>
+                                <a href="${r.source_page}" target="_blank" class="btn btn-secondary btn-sm">View Source</a>
+                            </div>
+                        </div>
+                    </div>`;
+            });
+            html += '</div>';
+            resultsDiv.innerHTML = html;
+        })
+        .catch(err => {
+            loading.style.display = 'none';
+            resultsDiv.innerHTML = '<div class="web-no-results"><p>Search failed: ' + err.message + '</p></div>';
+        });
+})();
+</script>
+
+{% endblock %}

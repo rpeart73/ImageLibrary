@@ -64,6 +64,15 @@ def autocomplete():
     return jsonify(unique[:10])
 
 
+@app.route('/web-search')
+def web_search_page():
+    """Dedicated web search results page. Opens in a new window."""
+    q = request.args.get('q', '').strip()
+    if not q:
+        return redirect(url_for('library'))
+    return render_template('web_search.html', query=q)
+
+
 _web_search_last = {}
 
 @app.route('/api/web-search')
