@@ -64,9 +64,19 @@ def autocomplete():
     return jsonify(unique[:10])
 
 
+_web_search_last = {}
+
 @app.route('/api/web-search')
 def web_search():
-    """Search Wikimedia Commons and Wikipedia for images related to a query."""
+    """Search Wikimedia Commons and Wikipedia for images related to a query.
+    Rate limited: 1 request per 3 seconds per client IP.
+    """
+    client_ip = request.remote_addr or 'unknown'
+    now_ts = datetime.now().timestamp()
+    if client_ip in _web_search_last and now_ts - _web_search_last[client_ip] < 3:
+        return jsonify({'results': [], 'error': 'Rate limited. Wait 3 seconds.', 'sources': []}), 429
+    _web_search_last[client_ip] = now_ts
+
     q = request.args.get('q', '').strip()
     if not q or len(q) < 2:
         return jsonify({'results': [], 'source': 'none'})
