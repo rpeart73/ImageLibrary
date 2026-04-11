@@ -16,6 +16,7 @@
             <a href="{{ url_for('browse') }}" class="{{ 'active' if request.endpoint == 'browse' }}">Browse</a>
             <a href="{{ url_for('themes') }}" class="{{ 'active' if request.endpoint == 'themes' }}">Themes</a>
             <a href="{{ url_for('media_list') }}" class="{{ 'active' if request.endpoint in ('media_list', 'media_detail') }}">Media</a>
+            <a href="{{ url_for('research') }}" class="{{ 'active' if request.endpoint == 'research' }}">Research</a>
             <a href="{{ url_for('upload') }}" class="{{ 'active' if request.endpoint == 'upload' }}">Upload</a>
             <a href="{{ url_for('import_url') }}" class="{{ 'active' if request.endpoint == 'import_url' }}">Import URL</a>
         </div>

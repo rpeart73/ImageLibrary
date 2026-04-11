@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}Research Portal — Iris{% endblock %}
+{% block content %}
+
+<div class="research-page">
+    <!-- Search Header -->
+    <div class="research-header">
+        <h2>Iris Research Portal</h2>
+        <p class="research-subtitle">14 databases. Quality-scored. Curriculum-aware. Citation-ready.</p>
+
+        <form id="research-form" class="research-search-form" onsubmit="doSearch(event)">
+            <div class="research-search-row">
+                <input type="text" id="research-q" name="q" value="{{ query }}"
+                       placeholder='Search: keywords, "exact phrase", author:hooks, title:"coded bias"'
+                       autocomplete="off">
+                <select id="research-course" name="course" class="research-course-select">
+                    <option value="">All courses</option>
+                    <option value="BFS142" {{ 'selected' if course == 'BFS142' }}>BFS142 — Race, Resistance and the Black Athlete</option>
+                    <option value="BFS211" {{ 'selected' if course == 'BFS211' }}>BFS211 — Black Music and Social Liberation</option>
+                    <option value="BFS218" {{ 'selected' if course == 'BFS218' }}>BFS218 — Techno-Racism</option>
+                    <option value="BFS220" {{ 'selected' if course == 'BFS220' }}>BFS220 — Black Perspectives in Popular Culture</option>
+                    <option value="SOC122" {{ 'selected' if course == 'SOC122' }}>SOC122 — Intro to Social Sciences</option>
+                </select>
+                <button type="submit" class="btn btn-primary">Search</button>
+            </div>
+
+            <label class="two-eyed-toggle">
+                <input type="checkbox" id="two-eyed-toggle">
+                <span class="two-eyed-label">Two-Eyed Seeing</span>
+                <span class="two-eyed-desc">Simultaneously surface Indigenous perspectives alongside Western scholarship</span>
+            </label>
+
+            <details class="research-advanced">
+                <summary>Advanced: Source Selection and Filters</summary>
+                <div class="research-advanced-grid">
+                    <div class="research-adv-field">
+                        <label>Academic Databases</label>
+                        <div class="research-source-toggles">
+                            <label><input type="checkbox" class="src-toggle" value="openalex" checked> OpenAlex</label>
+                            <label><input type="checkbox" class="src-toggle" value="core" checked> CORE</label>
+                            <label><input type="checkbox" class="src-toggle" value="crossref" checked> CrossRef</label>
+                            <label><input type="checkbox" class="src-toggle" value="semantic_scholar" checked> Semantic Scholar</label>
+                            <label><input type="checkbox" class="src-toggle" value="eric" checked> ERIC</label>
+                            <label><input type="checkbox" class="src-toggle" value="doaj" checked> DOAJ</label>
+                        </div>
+                    </div>
+                    <div class="research-adv-field">
+                        <label>Image and Media Sources</label>
+                        <div class="research-source-toggles">
+                            <label><input type="checkbox" class="src-toggle" value="wikimedia" checked> Wikimedia</label>
+                            <label><input type="checkbox" class="src-toggle" value="wikipedia" checked> Wikipedia</label>
+                            <label><input type="checkbox" class="src-toggle" value="smithsonian" checked> Smithsonian</label>
+                            <label><input type="checkbox" class="src-toggle" value="loc" checked> Library of Congress</label>
+                            <label><input type="checkbox" class="src-toggle" value="dpla" checked> DPLA</label>
+                            <label><input type="checkbox" class="src-toggle" value="internet_archive" checked> Internet Archive</label>
+                            <label><input type="checkbox" class="src-toggle" value="europeana" checked> Europeana</label>
+                            <label><input type="checkbox" class="src-toggle" value="lac" checked> Library and Archives Canada</label>
+                        </div>
+                    </div>
+                </div>
+            </details>
+        </form>
+    </div>
+
+    <!-- Empty state (shown before first search) -->
+    <div id="research-empty" class="research-empty" {% if query %}style="display:none"{% endif %}>
+        <h3>Search 14 databases at once</h3>
+        <p>Enter a query above. Supports Boolean operators (AND, OR, NOT), exact phrases ("like this"), and field searches (author:hooks, title:"coded bias").</p>
+        <div id="search-history-section" class="search-history" style="display:none">
+            <h3>Recent Searches</h3>
+            <div id="search-history-list"></div>
+        </div>
+    </div>
+
+    <!-- Loading state -->
+    <div id="research-loading" class="research-loading" style="display:none">
+        <div class="research-loading-text">Searching 14 institutional collections...</div>
+        <div class="research-loading-sources" id="loading-sources"></div>
+        <div class="research-loading-bar"></div>
+    </div>
+
+    <!-- Results layout -->
+    <div id="research-results-container" class="research-layout" style="display:none">
+        <!-- Sidebar -->
+        <aside class="research-sidebar" id="research-sidebar">
+            <h4>Result Type</h4>
+            <label><input type="checkbox" class="type-filter" value="article" checked onchange="filterResults()"> Articles <span class="sidebar-count" id="count-articles">0</span></label>
+            <label><input type="checkbox" class="type-filter" value="image" checked onchange="filterResults()"> Images <span class="sidebar-count" id="count-images">0</span></label>
+
+            <div id="source-facets"></div>
+
+            <h4>Actions</h4>
+            <div class="sidebar-actions">
+                <button type="button" class="btn btn-secondary" onclick="toggleSelectAll()">Select All</button>
+                <button type="button" class="btn btn-secondary" onclick="deselectAll()">Deselect All</button>
+                <button type="button" class="btn btn-primary" id="reading-list-btn" onclick="addToReadingList()" disabled>Add to Reading List (0)</button>
+                <button type="button" class="btn btn-primary" id="assess-btn" onclick="brainAssess()" disabled>Brain Assess (0)</button>
+                <button type="button" class="btn btn-primary" id="import-btn" onclick="importSelectedImages()" disabled>Import Images (0)</button>
+                <button type="button" class="btn btn-secondary" id="export-apa-btn" onclick="exportSelected('apa')" disabled>Export APA 7th</button>
+                <button type="button" class="btn btn-secondary" id="export-ris-btn" onclick="exportSelected('ris')" disabled>Export RIS (Zotero)</button>
+                <button type="button" class="btn btn-secondary" id="export-bib-btn" onclick="exportSelected('bibtex')" disabled>Export BibTeX</button>
+            </div>
+
+            <h4>Save Search</h4>
+            <button type="button" class="btn btn-secondary" style="width:100%;font-size:12px" onclick="saveCurrentSearch()">Save This Search</button>
+        </aside>
+
+        <!-- Main results -->
+        <main>
+            <div id="research-results-header" class="research-results-header">
+                <span class="research-count" id="results-count"></span>
+                <span class="research-breakdown" id="results-breakdown"></span>
+                <select class="research-sort" id="results-sort" onchange="sortResults()">
+                    <option value="quality">Sort by quality</option>
+                    <option value="citations">Sort by citations</option>
+                    <option value="year-desc">Newest first</option>
+                    <option value="year-asc">Oldest first</option>
+                    <option value="title">Sort by title</option>
+                </select>
+                <span class="research-sources-tag" id="results-sources"></span>
+            </div>
+
+            <!-- Parsed query info -->
+            <div id="parsed-query-info" style="font-size:12px;color:var(--text-muted);margin-bottom:12px;display:none"></div>
+
+            <div id="research-results-list"></div>
+
+            <!-- Two-Eyed Seeing results -->
+            <div id="two-eyed-section" class="two-eyed-section" style="display:none">
+                <h3>Indigenous Perspectives (Two-Eyed Seeing)</h3>
+                <div id="two-eyed-results-list"></div>
+            </div>
+
+            <!-- Brain assessment panel -->
+            <div id="brain-panel" class="research-brain-panel" style="display:none">
+                <h3>Seneca Brain Assessment</h3>
+                <p class="brain-desc">Curriculum-aware relevance scoring from the Seneca Brain</p>
+                <div id="brain-assessment"></div>
+            </div>
+
+            <!-- Reading list panel -->
+            <div id="reading-list-panel" class="reading-list-panel" style="display:none">
+                <h3>Reading List</h3>
+                <div id="reading-list-items"></div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/research.js') }}"></script>
+{% if query %}
+<script>document.addEventListener('DOMContentLoaded', function() { doSearch(); });</script>
+{% else %}
+<script>document.addEventListener('DOMContentLoaded', function() { loadSearchHistory(); });</script>
+{% endif %}
+
+{% endblock %}

@@ -96,6 +96,52 @@ def init_db():
     for name, desc in default_themes:
         c.execute("INSERT OR IGNORE INTO themes (name, description) VALUES (?, ?)", (name, desc))
 
+    # Research portal tables
+    c.executescript("""
+        CREATE TABLE IF NOT EXISTS search_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            query TEXT NOT NULL,
+            filters TEXT,
+            result_count INTEGER DEFAULT 0,
+            course TEXT,
+            created TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS saved_searches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            query TEXT NOT NULL,
+            filters TEXT,
+            course TEXT,
+            notes TEXT,
+            created TEXT DEFAULT (datetime('now')),
+            last_run TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS reading_list (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            authors TEXT,
+            year TEXT,
+            abstract TEXT,
+            url TEXT,
+            doi TEXT,
+            source TEXT,
+            content_type TEXT,
+            citation_apa TEXT,
+            citation_ris TEXT,
+            is_open_access INTEGER DEFAULT 0,
+            pdf_url TEXT,
+            citation_count INTEGER DEFAULT 0,
+            quality_score INTEGER DEFAULT 0,
+            thumb_url TEXT,
+            notes TEXT,
+            course TEXT,
+            collection TEXT DEFAULT 'Unsorted',
+            created TEXT DEFAULT (datetime('now'))
+        );
+    """)
+
     # Migration: add content_hash column for duplicate detection
     existing = [r[1] for r in c.execute("PRAGMA table_info(images)").fetchall()]
     if 'content_hash' not in existing:

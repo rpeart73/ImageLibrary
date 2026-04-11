@@ -13,6 +13,9 @@ from PIL import Image as PILImage
 
 from database import get_db, init_db, generate_apa_citation, compute_file_hash, DB_PATH
 from metadata_search import search_metadata, classify_from_page
+from query_parser import parse_query, augment_two_eyed_seeing
+from research_search import search_all, SOURCE_NAMES
+from citation_export import export_apa_list, export_ris, export_bibtex, format_apa
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -1362,6 +1365,255 @@ def api_stats():
     stats['by_theme'] = [{'name': r['name'], 'count': r['count']} for r in theme_counts]
     db.close()
     return jsonify(stats)
+
+
+# ════════════════════════��══════════════════════════════
+# Research Portal Routes
+# ═══════════════════════════════════════════════════════
+
+@app.route('/research')
+def research():
+    """Research portal page. Replaces the basic web search."""
+    q = request.args.get('q', '').strip()
+    course = request.args.get('course', '').strip()
+    return render_template('research.html', query=q, course=course)
+
+
+@app.route('/api/research-search')
+def api_research_search():
+    """Search 14 databases concurrently. Returns deduplicated, quality-scored results.
+
+    Query params:
+        q:          Search query (supports Boolean, phrases, fields)
+        course:     Optional course filter
+        sources:    Comma-separated source keys (default: all)
+        two_eyed:   '1' to enable Two-Eyed Seeing augmentation
+        limit:      Results per source (default 8, max 20)
+    """
+    q = request.args.get('q', '').strip()
+    if not q or len(q) < 2:
+        return jsonify({'results': [], 'articles': [], 'images': [],
+                        'source_counts': {}, 'total': 0})
+
+    course = request.args.get('course', '').strip()
+    sources_param = request.args.get('sources', '').strip()
+    two_eyed = request.args.get('two_eyed', '0') == '1'
+    limit = min(int(request.args.get('limit', 8)), 20)
+
+    # Parse the query
+    parsed = parse_query(q)
+
+    # Select sources
+    sources = sources_param.split(',') if sources_param else None
+
+    # Main search
+    data = search_all(parsed, sources=sources, limit_per_source=limit)
+
+    # Generate APA citations for results that don't have them
+    for r in data['results']:
+        if not r.get('apa_citation'):
+            r['apa_citation'] = format_apa(r)
+
+    # Two-Eyed Seeing augmentation (additional Indigenous-perspective results)
+    two_eyed_results = []
+    if two_eyed:
+        augmented_terms = augment_two_eyed_seeing(parsed)
+        if augmented_terms:
+            # Search a subset of academic sources for Indigenous perspectives
+            indigenous_sources = ['openalex', 'core', 'eric', 'wikimedia', 'loc']
+            for term in augmented_terms[:4]:  # limit to avoid too many extra queries
+                aug_parsed = parse_query(term)
+                aug_data = search_all(aug_parsed, sources=indigenous_sources, limit_per_source=3)
+                for r in aug_data['results']:
+                    r['two_eyed_seeing'] = True
+                    r['indigenous_term'] = term
+                    if not r.get('apa_citation'):
+                        r['apa_citation'] = format_apa(r)
+                    two_eyed_results.append(r)
+
+    # Log search to history
+    try:
+        db = get_db()
+        db.execute("INSERT INTO search_history (query, filters, result_count, course) VALUES (?, ?, ?, ?)",
+                   (q, sources_param or 'all', data['total'], course or None))
+        db.commit()
+        db.close()
+    except Exception:
+        pass
+
+    return jsonify({
+        'results': data['results'],
+        'articles': data['articles'],
+        'images': data['images'],
+        'two_eyed_results': two_eyed_results,
+        'source_counts': data['source_counts'],
+        'sources_searched': [SOURCE_NAMES.get(s, s) for s in data['sources_searched']],
+        'total': data['total'],
+        'query': q,
+        'parsed': {
+            'terms': parsed.terms,
+            'phrases': parsed.phrases,
+            'excluded': parsed.excluded,
+            'fields': parsed.fields,
+            'operator': parsed.operator,
+        },
+    })
+
+
+@app.route('/api/research-export', methods=['POST'])
+def api_research_export():
+    """Export selected results in APA 7th, RIS, or BibTeX format.
+
+    Body: {format: 'apa'|'ris'|'bibtex', results: [...]}
+    """
+    data = request.get_json()
+    if not data or 'results' not in data:
+        return jsonify({'error': 'No results provided'}), 400
+
+    results = data['results']
+    fmt = data.get('format', 'apa')
+
+    if fmt == 'ris':
+        output = export_ris(results)
+        return output, 200, {
+            'Content-Type': 'application/x-research-info-systems',
+            'Content-Disposition': 'attachment; filename=iris_research.ris',
+        }
+    elif fmt == 'bibtex':
+        output = export_bibtex(results)
+        return output, 200, {
+            'Content-Type': 'application/x-bibtex',
+            'Content-Disposition': 'attachment; filename=iris_research.bib',
+        }
+    else:
+        output = export_apa_list(results)
+        return output, 200, {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'Content-Disposition': 'attachment; filename=iris_references_apa7.txt',
+        }
+
+
+@app.route('/api/reading-list', methods=['GET', 'POST', 'DELETE'])
+def api_reading_list():
+    """Reading list CRUD.
+
+    GET:    Return all reading list items, optionally filtered by course.
+    POST:   Add an item to the reading list.
+    DELETE: Remove an item by id.
+    """
+    db = get_db()
+
+    if request.method == 'GET':
+        course = request.args.get('course', '').strip()
+        collection = request.args.get('collection', '').strip()
+
+        query = "SELECT * FROM reading_list WHERE 1=1"
+        params = []
+        if course:
+            query += " AND course = ?"
+            params.append(course)
+        if collection:
+            query += " AND collection = ?"
+            params.append(collection)
+        query += " ORDER BY created DESC"
+
+        items = db.execute(query, params).fetchall()
+        db.close()
+        return jsonify([dict(r) for r in items])
+
+    if request.method == 'POST':
+        data = request.get_json()
+        if not data:
+            db.close()
+            return jsonify({'error': 'No data'}), 400
+
+        # Check for duplicate by DOI or URL
+        doi = data.get('doi', '')
+        url = data.get('url', '')
+        if doi:
+            existing = db.execute("SELECT id FROM reading_list WHERE doi = ?", (doi,)).fetchone()
+            if existing:
+                db.close()
+                return jsonify({'error': 'Already in reading list', 'id': existing['id']}), 409
+        elif url:
+            existing = db.execute("SELECT id FROM reading_list WHERE url = ?", (url,)).fetchone()
+            if existing:
+                db.close()
+                return jsonify({'error': 'Already in reading list', 'id': existing['id']}), 409
+
+        db.execute("""INSERT INTO reading_list
+                      (title, authors, year, abstract, url, doi, source, content_type,
+                       citation_apa, citation_ris, is_open_access, pdf_url,
+                       citation_count, quality_score, thumb_url, notes, course, collection)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   (data.get('title', 'Untitled'), data.get('authors', ''),
+                    data.get('year', ''), data.get('abstract', ''),
+                    url, doi,
+                    data.get('source', ''), data.get('content_type', ''),
+                    data.get('citation_apa', ''), data.get('citation_ris', ''),
+                    1 if data.get('is_open_access') else 0,
+                    data.get('pdf_url', ''),
+                    data.get('citation_count', 0), data.get('quality_score', 0),
+                    data.get('thumb_url', ''), data.get('notes', ''),
+                    data.get('course', ''), data.get('collection', 'Unsorted')))
+        db.commit()
+        item_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+        db.close()
+        return jsonify({'ok': True, 'id': item_id}), 201
+
+    if request.method == 'DELETE':
+        item_id = request.args.get('id', type=int)
+        if not item_id:
+            db.close()
+            return jsonify({'error': 'No id'}), 400
+        db.execute("DELETE FROM reading_list WHERE id = ?", (item_id,))
+        db.commit()
+        db.close()
+        return jsonify({'ok': True})
+
+
+@app.route('/api/saved-searches', methods=['GET', 'POST', 'DELETE'])
+def api_saved_searches():
+    """Saved searches CRUD."""
+    db = get_db()
+
+    if request.method == 'GET':
+        items = db.execute("SELECT * FROM saved_searches ORDER BY last_run DESC, created DESC").fetchall()
+        db.close()
+        return jsonify([dict(r) for r in items])
+
+    if request.method == 'POST':
+        data = request.get_json()
+        if not data or not data.get('query'):
+            db.close()
+            return jsonify({'error': 'No query'}), 400
+        db.execute("INSERT INTO saved_searches (name, query, filters, course, notes) VALUES (?, ?, ?, ?, ?)",
+                   (data.get('name', data['query'][:50]),
+                    data['query'], data.get('filters', ''),
+                    data.get('course', ''), data.get('notes', '')))
+        db.commit()
+        item_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+        db.close()
+        return jsonify({'ok': True, 'id': item_id}), 201
+
+    if request.method == 'DELETE':
+        item_id = request.args.get('id', type=int)
+        if not item_id:
+            db.close()
+            return jsonify({'error': 'No id'}), 400
+        db.execute("DELETE FROM saved_searches WHERE id = ?", (item_id,))
+        db.commit()
+        db.close()
+        return jsonify({'ok': True})
+
+
+@app.route('/api/search-history')
+def api_search_history():
+    """Return the last 30 searches."""
+    db = get_db()
+    items = db.execute("SELECT * FROM search_history ORDER BY created DESC LIMIT 30").fetchall()
+    db.close()
+    return jsonify([dict(r) for r in items])
 
 
 if __name__ == '__main__':
